@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -60,7 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
 import androidx.compose.ui.util.lerp
-import dev.ujhhgtg.wekit.ui.content.liquid.rememberMiuixBlurBackdrop
 import dev.ujhhgtg.wekit.ui.content.animation.DampedDragAnimation
 import dev.ujhhgtg.wekit.ui.content.animation.InteractiveHighlight
 import dev.ujhhgtg.wekit.ui.content.liquid.InnerShadow
@@ -81,7 +81,6 @@ import top.yukonga.miuix.kmp.blur.highlight.LightSource
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.sensor.rememberDeviceTilt
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -107,9 +106,9 @@ class FloatingBottomBarColors(
 object FloatingBottomBarDefaults {
     @Composable
     fun colors(
-        containerColor: Color = MiuixTheme.colorScheme.surfaceContainer,
-        indicatorColor: Color = MiuixTheme.colorScheme.primary,
-        contentColor: Color = MiuixTheme.colorScheme.onSurface,
+        containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+        indicatorColor: Color = MaterialTheme.colorScheme.primary,
+        contentColor: Color = MaterialTheme.colorScheme.onSurface,
         activeContentColor: Color = indicatorColor
     ): FloatingBottomBarColors = FloatingBottomBarColors(
         containerColor = containerColor,

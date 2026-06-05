@@ -14,6 +14,7 @@ import androidx.collection.mutableIntSetOf
 import com.highcapable.kavaref.extension.isSubclassOf
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.chatting.ChattingUI
+import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -23,11 +24,12 @@ import dev.ujhhgtg.wekit.hooks.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
-import dev.ujhhgtg.wekit.ui.content.ContactsSelectionDialog
+import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import dev.ujhhgtg.wekit.utils.reflection.resolve
@@ -42,7 +44,7 @@ import kotlin.math.sqrt
 隐藏位置:
 1. 首页对话列表
 2. 通讯录内联系人&群聊列表
-3. 搜索界面 (没写完)
+3. 首页搜索界面
 4. 锁屏自动关闭聊天界面
 5. 摇一摇设备关闭聊天界面"""
 )
@@ -224,7 +226,7 @@ object HideContacts : ClickableHookItem(), IResolvesDex {
 
         methodChatroomContactAdapterInitCursor.method.declaringClass.resolve()
             .firstMethod { name = "getCount" }.hookAfter {
-                result = (result as Int) - hiddenPositions.size
+                result = result as Int - hiddenPositions.size
             }
 
         methodChatroomContactAdapterInitCursor.method.declaringClass.resolve()
@@ -259,14 +261,43 @@ object HideContacts : ClickableHookItem(), IResolvesDex {
 //            WeLogger.d(TAG, describeContent(elem))
 //            WeLogger.d(TAG, describeContent(elem.asResolver().firstField { name = "n"; superclass() }.get()!!.cast<List<*>>().first()))
 //        }
+
+        SQLiteDatabase::class.asResolver().firstMethod {
+            name = "rawQueryWithFactory"
+            parameters(SQLiteDatabase.CursorFactory::class, BString, Array<Any>::class, BString)
+        }.hookBefore {
+            val sql = args[1] as String
+            if (FTS_SQL_REGEX.containsMatchIn(sql) || sql.startsWith(SQL_SELECT_MESSAGE) || sql.startsWith(SQL_SELECT_MESSAGES_BY_KEYWORD)) {
+                val hideValueText = hiddenContacts.joinToString(",") { "\"$it\"" }
+
+                val newSql = if (sql.endsWith(";")) {
+                    sql.dropLast(1)
+                } else {
+                    sql
+                }.let { "SELECT * FROM ($it) AS a WHERE aux_index NOT IN ($hideValueText);" }
+
+                args[1] = newSql
+
+                WeLogger.d(TAG, "replaced '$sql' with '$newSql'")
+            }
+        }
     }
+
+    private const val SQL_SELECT_MESSAGE =
+        "SELECT type, subtype, entity_id, aux_index, MAX(timestamp) as maxTime, count(aux_index) as msgCount, talker FROM FTS5MetaMessage"
+
+    private const val SQL_SELECT_MESSAGES_BY_KEYWORD =
+        "SELECT FTS5MetaMessage.docid, type, subtype, entity_id, aux_index, timestamp, talker FROM FTS5MetaMessage"
+
+    private val FTS_SQL_REGEX =
+        Regex("^SELECT (FTS5MetaContact|FTS5MetaTopHits|FTS5MetaKefuContact|FTS5MetaFeature|FTS5MetaWeApp|FTS5MetaFinderFollow|FTS5MetaFavorite)\\.docid, type, subtype, entity_id, aux_index,.*")
 
     private val hiddenPositions = mutableIntSetOf()
 
     override fun onClick(context: Context) {
         val regularContacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
         showComposeDialog(context) {
-            ContactsSelectionDialog(
+            ContactsSelector(
                 title = "选择要隐藏的联系人",
                 contacts = regularContacts,
                 initialSelectedWxIds = hiddenContacts,

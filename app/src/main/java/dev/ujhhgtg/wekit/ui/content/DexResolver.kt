@@ -36,7 +36,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.WeLogger.exitProcess
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.reflection.dexKit
+import dev.ujhhgtg.wekit.utils.reflection.DexKit
 import dev.ujhhgtg.wekit.utils.unreachable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -139,7 +139,7 @@ fun DexResolver(
                         async(Dispatchers.IO) {
                             scanItem(
                                 item,
-                                dexKit,
+                                DexKit,
                                 progressChannel
                             )
                         }

@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.hooks.api.core
 
 import android.annotation.SuppressLint
 import android.database.Cursor
+import com.tencent.wcdb.DatabaseErrorHandler
+import com.tencent.wcdb.database.SQLiteCipherSpec
 import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
@@ -15,7 +17,9 @@ import dev.ujhhgtg.wekit.hooks.api.core.models.WeOfficialAccount
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
+import dev.ujhhgtg.wekit.utils.reflection.int
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 
@@ -215,6 +219,21 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
 
             val storageObj = result ?: return@hookAfter
             initializeDatabase(storageObj)
+        }
+
+        SQLiteDatabase::class.asResolver().firstMethod {
+            name = "openDatabase"
+            parameters(BString, ByteArray::class, SQLiteCipherSpec::class, SQLiteDatabase.CursorFactory::class, int, DatabaseErrorHandler::class, int)
+        }.hookBefore {
+            val cipherSpec = args[2] as SQLiteCipherSpec?
+            WeLogger.d(
+                TAG,
+                "openDatabase() called with: name=${args[0] as String?}, password=${String(args[1] as? ByteArray? ?: return@hookBefore)}, cipherSpec=${
+                    cipherSpec.run {
+                        "${this?.hmacAlgorithm},${this?.hmacEnabled},${this?.kdfAlgorithm},${this?.kdfIteration},${this?.pageSize}"
+                    }
+                }"
+            )
         }
     }
 

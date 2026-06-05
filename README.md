@@ -196,6 +196,31 @@ chmod +x ./gradlew
    └─ ...
 ```
 
+## 解密微信数据库
+
+1. 启动微信
+
+2. 在日志中寻找: `WeDatabaseApi: openDatabase() called with: name=/data/user/0/com.tencent.mm/MicroMsg/xxxxxxxxx/EnMicroMsg.db, password=xxxxxxx, cipherSpec=0,false,0,4000,1024`
+
+3. 输入:
+
+    ```bash
+    sqlcipher ./EnMicroMsg.db
+
+    PRAGMA key = 'xxxxxxx';
+    PRAGMA cipher_compatibility = 1;
+
+    # 不要连续输入多行命令, 请一行一行输入
+    ATTACH DATABASE 'decrypted_wechat.db' AS decrypted KEY '';
+
+    SELECT sqlcipher_export('decrypted');
+    DETACH DATABASE decrypted;
+
+    .exit
+    ```
+
+4. 用 `DB Browser for SQLite` 打开 `decrypted_wechat.db`
+
 ## 致谢
 
 [WeKit 上游](https://github.com/cwuom/WeKit)

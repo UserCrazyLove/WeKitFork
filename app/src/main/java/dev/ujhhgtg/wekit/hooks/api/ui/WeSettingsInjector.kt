@@ -30,6 +30,7 @@ import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.ui.content.MainSettingsDialog
+import dev.ujhhgtg.wekit.ui.utils.ExtensionIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirectoriesNoThrow
@@ -433,7 +434,7 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex, WeHomeScreenPopupMenuAp
 
     override fun getMenuItems(param: XC_MethodHook.MethodHookParam) = listOf(
         WeHomeScreenPopupMenuApi.MenuItem(
-            676767, BuildConfig.TAG, 0
+            0, BuildConfig.TAG, ExtensionIcon
         ) { openSettingsDialog(LauncherUI.getInstance()!!) }
     )
 

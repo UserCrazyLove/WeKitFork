@@ -12,9 +12,9 @@ inline val MethodData.asMethod get() = getMethodInstance(ClassLoaders.HOST)
 
 inline val ClassData.asClass get() = getInstance(ClassLoaders.HOST)
 
-inline val MethodData.asConstuctor get() = getConstructorInstance(ClassLoaders.HOST)
+inline val MethodData.asConstructor get() = getConstructorInstance(ClassLoaders.HOST)
 
-val dexKit by lazy {
+val DexKit by lazy {
     runBlocking {
         withContext(Dispatchers.IO) {
             DexKitBridge.create(HostInfo.appInfo.sourceDir)

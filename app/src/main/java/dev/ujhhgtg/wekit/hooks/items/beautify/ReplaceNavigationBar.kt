@@ -50,20 +50,21 @@ import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarItem
 import dev.ujhhgtg.wekit.ui.content.TextButton
-import dev.ujhhgtg.wekit.ui.content.liquid.rememberMiuixBlurBackdrop
 import dev.ujhhgtg.wekit.ui.utils.AppTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import org.luckypray.dexkit.DexKitBridge
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 @HookItem(
     path = "界面美化/美化首页底部导航栏",
-    description = "将首页底部导航栏替换为 Material Design 风格"
+    description = "将首页底部导航栏替换为 Material Design 或 Backdrop 风格"
 )
 object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
 
@@ -74,6 +75,7 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
         MaterialSymbols.OutlinedFilled.Person to "我"
     )
 
+    private var useFloating by prefOption("nav_bar_use_floating", false)
     private var useBackdrop by prefOption("nav_bar_use_backdrop", false)
 
     override fun onEnable() {
@@ -96,7 +98,9 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
             val methodOnTabClick = tabsAdapter.asResolver()
                 .firstMethod {
                     name = "onTabClick"
-                }
+                }.self
+
+            val navigateToTab = { index: Int -> methodOnTabClick.invoke(tabsAdapter, index) }
 
             val viewParent = viewPager.parent as ViewGroup
             val bottomTabViewGroup = viewParent.getChildAt(1) as ViewGroup
@@ -122,9 +126,12 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                 ComposeView(activity).apply {
                     setLifecycleOwner(lifecycleOwner)
 
+                    val useFloating = useFloating
+                    val useBackdrop = useBackdrop
+
                     setContent {
                         AppTheme {
-                            var currentIndex by selectedPageIndexState
+                            var selectedIndex by selectedPageIndexState
                             val unreadCount by unreadCountState
 
                             // TODO: we currently use a custom background color without accent to match with WeChat's overall style
@@ -133,7 +140,7 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                             val activeColor = MaterialTheme.colorScheme.primary
                             val inactiveColor = MaterialTheme.colorScheme.outline
 
-                            if (!useBackdrop) {
+                            if (!useFloating) {
                                 val offset by scrollOffsetState
                                 NavigationBar(
                                     modifier = Modifier
@@ -142,8 +149,8 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                     containerColor = backgroundColor
                                 ) {
                                     ICONS.forEachIndexed { index, (icon, label) ->
-                                        val isSelected = index == currentIndex
-                                        val isNext = index == currentIndex + 1
+                                        val isSelected = index == selectedIndex
+                                        val isNext = index == selectedIndex + 1
 
                                         val tint = when {
                                             isSelected -> lerpColor(
@@ -163,7 +170,7 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
 
                                         NavigationBarItem(
                                             selected = isSelected && offset < 0.5f,
-                                            onClick = { methodOnTabClick.invoke(index) },
+                                            onClick = { navigateToTab(index) },
                                             icon = {
                                                 BadgedBox(
                                                     badge = {
@@ -197,8 +204,6 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                     }
                                 }
                             } else {
-                                val backdrop = rememberMiuixBlurBackdrop(false)!!
-
                                 Box(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
@@ -214,25 +219,34 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                                 bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues()
                                                     .calculateBottomPadding()
                                             ),
-                                        selectedIndex = { selectedPageIndexState.intValue },
-                                        onSelected = { index ->
-                                            methodOnTabClick.invoke(index)
-                                        },
-                                        backdrop = backdrop,
+                                        selectedIndex = { selectedIndex },
+                                        onSelected = { navigateToTab(it) },
+                                        backdrop = rememberLayerBackdrop(),
                                         tabsCount = ICONS.size,
-                                        isBlurEnabled = false
+                                        isBlurEnabled = useBackdrop
                                     ) {
                                         ICONS.forEachIndexed { index, item ->
                                             FloatingBottomBarItem(
-                                                onClick = {
-                                                    methodOnTabClick.invoke(index)
-                                                },
+                                                onClick = { navigateToTab(index) },
                                                 modifier = Modifier.defaultMinSize(minWidth = 76.dp)
                                             ) {
-                                                Icon(
-                                                    imageVector = item.first,
-                                                    contentDescription = item.second
-                                                )
+                                                BadgedBox(
+                                                    badge = {
+                                                        if (index == 0 && unreadCount > 0) {
+                                                            Badge(containerColor = Color(0xFFFF3B30)) {
+                                                                Text(
+                                                                    if (unreadCount <= 99) unreadCount.toString() else "99+",
+                                                                    color = Color.White, fontSize = 10.sp
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = item.first,
+                                                        contentDescription = item.second
+                                                    )
+                                                }
                                                 Text(
                                                     text = item.second,
                                                     fontSize = 11.sp,
@@ -272,23 +286,36 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
 
     override fun onClick(context: Context) {
         showComposeDialog(context) {
+            var useFloatingInput by remember { mutableStateOf(useFloating) }
             var useBackdropInput by remember { mutableStateOf(useBackdrop) }
 
             AlertDialogContent(
                 title = { Text("美化首页底部导航栏") },
                 text = {
-                    ListItem(
-                        headlineContent = { Text("启用液态玻璃效果") },
-                        trailingContent = {
-                            Switch(
-                                useBackdropInput,
-                                { useBackdropInput = it })
-                        }
-                    )
+                    DefaultColumn {
+                        ListItem(
+                            headlineContent = { Text("使用悬浮底栏") },
+                            trailingContent = {
+                                Switch(
+                                    useFloatingInput,
+                                    { useFloatingInput = it })
+                            }
+                        )
+                        ListItem(
+                            headlineContent = { Text("启用液态玻璃效果") },
+                            supportingContent = { Text("需启用「使用悬浮底栏」") },
+                            trailingContent = {
+                                Switch(
+                                    useBackdropInput,
+                                    { useBackdropInput = it })
+                            }
+                        )
+                    }
                 },
                 dismissButton = { TextButton(onDismiss) { Text("取消") } },
                 confirmButton = {
                     Button(onClick = {
+                        useFloating = useFloatingInput
                         useBackdrop = useBackdropInput
                         onDismiss()
                     }) { Text("确定") }

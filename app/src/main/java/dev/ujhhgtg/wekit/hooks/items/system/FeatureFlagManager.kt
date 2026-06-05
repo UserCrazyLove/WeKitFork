@@ -46,7 +46,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
-import dev.ujhhgtg.wekit.utils.reflection.dexKit
+import dev.ujhhgtg.wekit.utils.reflection.DexKit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.luckypray.dexkit.DexKitBridge
@@ -177,7 +177,7 @@ object FeatureFlagManager : ClickableHookItem(), IResolvesDex {
                 withContext(Dispatchers.IO) {
                     val superClassName = classRepairerConfigBaseImpl.clazz.name
 
-                    val results = dexKit.findClass {
+                    val results = DexKit.findClass {
                         matcher {
                             superClass {
                                 superClass {

@@ -38,7 +38,7 @@ import dev.ujhhgtg.wekit.utils.fs.createDirectoriesNoThrow
 import dev.ujhhgtg.wekit.utils.polyfills.intoList
 import dev.ujhhgtg.wekit.utils.reflection.asClass
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
-import dev.ujhhgtg.wekit.utils.reflection.dexKit
+import dev.ujhhgtg.wekit.utils.reflection.DexKit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -386,7 +386,7 @@ object StickersSync : ClickableHookItem(), IResolvesDex {
             val retTypeInitArg2Type = retTypeCtor.parameters[2].type
             if (actualRetTypeInitArg2Type == null) {
                 actualRetTypeInitArg2Type =
-                    dexKit.findClass {
+                    DexKit.findClass {
                         matcher {
                             addInterface(retTypeInitArg2Type.name)
                             addMethod {

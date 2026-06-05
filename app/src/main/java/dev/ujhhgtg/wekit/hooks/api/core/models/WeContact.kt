@@ -4,6 +4,7 @@ interface IWeContact {
     val wxId: String
     val nickname: String
     val displayName: String
+    val avatarUrl: String
 }
 
 // 基础用户信息模型
@@ -14,7 +15,7 @@ data class WeContact(
     val remarkName: String,
     val initialNickname: String,
     val nicknamePinyin: String,
-    val avatarUrl: String,
+    override val avatarUrl: String,
     val encryptedUsername: String,
     val type: Int
 ) : IWeContact {
@@ -28,7 +29,7 @@ data class WeGroup(
     override val nickname: String,
     val nicknameShortPinyin: String,
     val nicknamePinyin: String,
-    val avatarUrl: String
+    override val avatarUrl: String
 ) : IWeContact {
     override val displayName: String
         get() = nickname
@@ -38,7 +39,7 @@ data class WeGroup(
 data class WeOfficialAccount(
     override val wxId: String,
     override val nickname: String,
-    val avatarUrl: String
+    override val avatarUrl: String
 ) : IWeContact {
     override val displayName: String
         get() = nickname

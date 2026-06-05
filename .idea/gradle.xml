@@ -34,6 +34,7 @@
             <option value="$PROJECT_DIR$/libs/external/comptime-kt/plugin" />
           </set>
         </option>
+        <option name="myGradleHome" value="/usr/share/java/gradle" />
       </GradleProjectSettings>
     </option>
     <option name="parallelModelFetch" value="true" />

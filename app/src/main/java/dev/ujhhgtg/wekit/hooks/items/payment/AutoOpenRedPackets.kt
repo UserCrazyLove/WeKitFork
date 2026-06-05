@@ -31,7 +31,7 @@ import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
-import dev.ujhhgtg.wekit.ui.content.ContactsSelectionDialog
+import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -280,7 +280,7 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
                                 val currentList = WePrefs.getStringSetOrDef(listKey, emptySet())
 
                                 showComposeDialog(context) {
-                                    ContactsSelectionDialog(
+                                    ContactsSelector(
                                         title = if (useWhitelist) "选择白名单" else "选择黑名单",
                                         contacts = regularContacts,
                                         initialSelectedWxIds = currentList,

@@ -263,6 +263,8 @@ dependencies {
     implementation(libs.miuix.ui)
     implementation(libs.miuix.blur)
     implementation(libs.coil)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     implementation(libs.composablehorizons.material.symbols.filled)
     implementation(libs.composablehorizons.material.symbols.outlined)

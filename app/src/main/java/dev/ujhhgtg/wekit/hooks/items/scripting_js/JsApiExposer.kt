@@ -16,7 +16,7 @@ import dev.ujhhgtg.wekit.utils.fs.createDirectoriesNoThrow
 import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.reflection.asMethod
-import dev.ujhhgtg.wekit.utils.reflection.dexKit
+import dev.ujhhgtg.wekit.utils.reflection.DexKit
 import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.serialization.json.JsonArray
@@ -1796,7 +1796,7 @@ object JsApiExposer {
                 val searcher = args.getOrNull(0) as? NativeObject
                     ?: return NativeObject()
                 return try {
-                    val results = dexKit.findMethod {
+                    val results = DexKit.findMethod {
                         val pkgs = getStringArrayProperty(searcher, "searchPackages")
                         if (pkgs != null) searchPackages(*pkgs)
                         matcher {
@@ -1827,7 +1827,7 @@ object JsApiExposer {
                 val searcher = args.getOrNull(0) as? NativeObject
                     ?: return NativeObject()
                 return try {
-                    val results = dexKit.findClass {
+                    val results = DexKit.findClass {
                         val pkgs = getStringArrayProperty(searcher, "searchPackages")
                         if (pkgs != null) searchPackages(*pkgs)
                         matcher {

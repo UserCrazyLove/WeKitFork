@@ -17,6 +17,7 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.reflection.BInt
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import org.luckypray.dexkit.DexKitBridge
 
@@ -28,7 +29,7 @@ object RemoveChatMessageContextMenuItems : ClickableHookItem(), IResolvesDex {
     private val methodAddMenuItem2 by dexMethod()
     private const val KEY_REMOVED_ITEM_NAMES = "removed_menu_item_names"
     private const val DEFAULT_REMOVED_ITEM_NAMES =
-        "收藏,提醒,翻译,搜一搜,编辑,打开,相关表情,合拍,查看专辑,静音播放,听筒播放,背景播放"
+        "收藏,总结,提醒,翻译,搜一搜,编辑,打开,相关表情,合拍,查看专辑,静音播放,听筒播放,背景播放"
 
     override fun onEnable() {
         methodAddMenuItem1.hookAfter {
@@ -71,9 +72,9 @@ object RemoveChatMessageContextMenuItems : ClickableHookItem(), IResolvesDex {
 
                 name = "add"
                 paramTypes(
-                    Int::class.java,
-                    Int::class.java,
-                    Int::class.java,
+                    BInt,
+                    BInt,
+                    BInt,
                     CharSequence::class.java
                 )
                 returnType(MenuItem::class.java)
@@ -84,11 +85,11 @@ object RemoveChatMessageContextMenuItems : ClickableHookItem(), IResolvesDex {
             matcher {
                 declaredClass(methodAddMenuItem1.method.declaringClass)
                 paramTypes(
-                    Int::class.java,
-                    Int::class.java,
-                    Int::class.java,
+                    BInt,
+                    BInt,
+                    BInt,
                     CharSequence::class.java,
-                    Int::class.java
+                    BInt
                 )
                 returnType(MenuItem::class.java)
             }
@@ -113,7 +114,7 @@ object RemoveChatMessageContextMenuItems : ClickableHookItem(), IResolvesDex {
                         onValueChange = { removedNames = it },
                         label = { Text("要移除的菜单项名称 (以逗号分割):") })
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+                dismissButton = { TextButton(onDismiss) { Text("取消") } },
                 confirmButton = {
                     Button(onClick = {
                         WePrefs.putString(
