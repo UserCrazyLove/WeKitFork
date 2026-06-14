@@ -101,7 +101,7 @@ import kotlin.math.min
     name = "自定义好友本地头像", categories = ["联系人与群组", "联系人详情页面"],
     description = "为指定联系人或群组使用本地图片替换微信内显示的头像"
 )
-object CustomContactAvatar : ClickableHookItem(), IContactInfoProvider, IResolvesDex {
+object CustomLocalFriendAvatars : ClickableHookItem(), IContactInfoProvider, IResolvesDex {
 
     private const val PREF_KEY = "custom_avatar"
     private const val SEP = ";"

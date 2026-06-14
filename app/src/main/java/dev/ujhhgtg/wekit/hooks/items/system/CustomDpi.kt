@@ -37,7 +37,7 @@ import java.lang.reflect.Modifier as ReflectModifier
     name = "DPI 修改", categories = ["界面美化", "系统与隐私"],
     description = "自定义微信屏幕密度"
 )
-object CustomDpiHook : ClickableHookItem(), IResolvesDex {
+object CustomDpi : ClickableHookItem(), IResolvesDex {
 
     private val methodGetDisplayMetrics by dexMethod {
         matcher {

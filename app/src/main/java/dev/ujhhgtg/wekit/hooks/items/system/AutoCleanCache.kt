@@ -1,7 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.items.system
 
 import android.content.Context
-import dev.ujhhgtg.comptime.nameOf
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -21,11 +21,12 @@ import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.div
 import kotlin.io.path.exists
+import kotlin.time.Duration.Companion.milliseconds
 
 @HookItem(name = "清理缓存垃圾", categories = ["系统与隐私"], description = "自动或手动清理微信的缓存")
 object AutoCleanCache : ClickableHookItem() {
 
-    private val TAG = nameOf(AutoCleanCache)
+    private val TAG = This.Class.simpleName
     private const val CLEAN_INTERVAL = 30 * 60 * 1000L // 每 30 分钟清理一次
 
     private var cleanJob: Job? = null
@@ -66,7 +67,7 @@ object AutoCleanCache : ClickableHookItem() {
         cleanJob = scope.launch {
             while (isActive) {
                 performClean()
-                delay(CLEAN_INTERVAL)
+                delay(CLEAN_INTERVAL.milliseconds)
             }
         }
     }

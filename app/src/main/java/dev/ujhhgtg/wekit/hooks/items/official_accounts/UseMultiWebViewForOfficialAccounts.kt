@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.hooks.items.system
+package dev.ujhhgtg.wekit.hooks.items.official_accounts
 
 import android.content.Intent
 import de.robv.android.xposed.XC_MethodHook
@@ -9,7 +9,7 @@ import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 @HookItem(
-    name = "允许公众号网页多开", categories = ["系统与隐私"],
+    name = "允许公众号网页多开", categories = ["公众号"],
     description = "为公众号时间线预加载网页启用多任务"
 )
 object UseMultiWebViewForOfficialAccounts : SwitchHookItem(), WeStartActivityApi.IStartActivityListener {

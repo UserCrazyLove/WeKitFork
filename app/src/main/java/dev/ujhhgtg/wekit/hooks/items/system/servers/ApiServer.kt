@@ -11,6 +11,7 @@ import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -67,15 +68,9 @@ import java.net.NetworkInterface
 @HookItem(name = "API 服务器", categories = ["系统与隐私"], description = "启用 MCP 与 REST API 服务器, 让人类与 AI 能够访问微信能力")
 object ApiServer : ClickableHookItem() {
 
-    private const val KEY_AUTH_TOKEN = "api_auth_token"
-    private var AUTH_TOKEN
-        get() = WePrefs.getStringOrDef(KEY_AUTH_TOKEN, "your_token")
-        set(value) = WePrefs.putString(KEY_AUTH_TOKEN, value)
+    private var authToken by prefOption("api_auth_token", "your_token")
 
-    private const val KEY_SERVER_PORT = "api_port"
-    private var SERVER_PORT
-        get() = WePrefs.getIntOrDef(KEY_SERVER_PORT, 3001)
-        set(value) = WePrefs.putInt(KEY_SERVER_PORT, value)
+    private var serverPort by prefOption("api_port", 3001)
 
     // -------------------------------------------------------------------------
     // REST response models
@@ -288,7 +283,7 @@ object ApiServer : ClickableHookItem() {
         install(Authentication) {
             bearer(AUTH_PROVIDER_NAME) {
                 authenticate { credential ->
-                    if (credential.token == AUTH_TOKEN)
+                    if (credential.token == authToken)
                         UserIdPrincipal("client") else null
                 }
             }
@@ -469,11 +464,11 @@ object ApiServer : ClickableHookItem() {
 
     override fun onEnable() {
         val addr = getLanAddress()
-        netServer = embeddedServer(CIO, host = addr, port = SERVER_PORT) {
+        netServer = embeddedServer(CIO, host = addr, port = serverPort) {
             configureServer()
         }.start(wait = false)
-        showToast("MCP 服务器启动于 http://$addr:$SERVER_PORT/mcp")
-        showToast("REST API 服务器启动于 http://$addr:$SERVER_PORT/api")
+        showToast("MCP 服务器启动于 http://$addr:$serverPort/mcp")
+        showToast("REST API 服务器启动于 http://$addr:$serverPort/api")
     }
 
     override fun onDisable() {
@@ -483,8 +478,8 @@ object ApiServer : ClickableHookItem() {
 
     override fun onClick(context: Context) {
         showComposeDialog(context) {
-            var authToken by remember { mutableStateOf(AUTH_TOKEN) }
-            var serverPortInput by remember { mutableStateOf(SERVER_PORT.toString()) }
+            var authToken by remember { mutableStateOf(authToken) }
+            var serverPortInput by remember { mutableStateOf(serverPort.toString()) }
 
             AlertDialogContent(
                 title = { Text("API 服务器") },
@@ -509,8 +504,8 @@ object ApiServer : ClickableHookItem() {
                             return@Button
                         }
 
-                        SERVER_PORT = serverPort
-                        AUTH_TOKEN = authToken
+                        ApiServer.serverPort = serverPort
+                        ApiServer.authToken = authToken
                         onDismiss()
                     }) { Text("确定") }
                 })

@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.hooks.items.system
+package dev.ujhhgtg.wekit.hooks.items.official_accounts
 
 import android.content.ComponentName
 import android.content.Intent
@@ -11,7 +11,7 @@ import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@HookItem(name = "恢复旧版公众号列表", categories = ["系统与隐私"], description = "!!! 仅适用于旧版本微信 !!!\n新版本已在代码中移除旧 UI, 无法继续使用本功能")
+@HookItem(name = "恢复旧版公众号列表", categories = ["公众号"], description = "!!! 仅适用于旧版本微信 !!!\n新版本已在代码中移除旧 UI, 无法继续使用本功能")
 object UseLegacyOfficialAccountsView : SwitchHookItem(), WeStartActivityApi.IStartActivityListener {
 
     override fun onEnable() {

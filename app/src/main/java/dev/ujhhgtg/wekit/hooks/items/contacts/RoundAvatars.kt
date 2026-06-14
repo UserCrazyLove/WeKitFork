@@ -25,7 +25,7 @@ import org.luckypray.dexkit.DexKitBridge
     name = "圆角头像", categories = ["联系人与群组", "界面美化"],
     description = "自定义微信全局头像渲染的圆角弧度"
 )
-object RoundAvatarHook : ClickableHookItem(), IResolvesDex {
+object RoundAvatars : ClickableHookItem(), IResolvesDex {
 
     private const val KEY_ROUND_AVATAR = "round_avatar_radius_factor"
 
@@ -130,8 +130,8 @@ object RoundAvatarHook : ClickableHookItem(), IResolvesDex {
 
     private fun notifyCustomContactAvatarChanged() {
         runCatching {
-            if (CustomContactAvatar.hasEnabled) {
-                CustomContactAvatar.onRoundAvatarConfigChanged()
+            if (CustomLocalFriendAvatars.hasEnabled) {
+                CustomLocalFriendAvatars.onRoundAvatarConfigChanged()
             }
         }
     }

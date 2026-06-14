@@ -31,6 +31,7 @@ import com.composables.icons.materialsymbols.outlined.Label
 import com.composables.icons.materialsymbols.outlined.License
 import com.composables.icons.materialsymbols.outlined.Lightbulb_2
 import com.composables.icons.materialsymbols.outlined.Movie
+import com.composables.icons.materialsymbols.outlined.Newspaper
 import com.composables.icons.materialsymbols.outlined.Notifications
 import com.composables.icons.materialsymbols.outlined.Package_2
 import com.composables.icons.materialsymbols.outlined.Payments
@@ -119,6 +120,7 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
             "系统与隐私" to MaterialSymbols.Outlined.Wand_stars,
             "通知" to MaterialSymbols.Outlined.Notifications,
             "界面美化" to MaterialSymbols.Outlined.Imagesearch_roller,
+            "公众号" to MaterialSymbols.Outlined.Newspaper,
             "小程序" to MaterialSymbols.Outlined.Package_2,
             "视频号" to MaterialSymbols.Outlined.Movie,
             "个人资料" to MaterialSymbols.Outlined.Account_circle,
