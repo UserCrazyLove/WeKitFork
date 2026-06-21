@@ -23,6 +23,8 @@ import com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI
 import com.tencent.mm.ui.widget.imageview.WeImageView
 import com.tencent.mm.view.recyclerview.WxRecyclerView
 import dev.ujhhgtg.comptime.This
+import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
@@ -39,8 +41,6 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.formatEpoch
-import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.makeAccessible
 import java.lang.reflect.Field
 import java.util.Locale
 
@@ -69,9 +69,9 @@ object DisplayDetails : ClickableHookItem(), IResolveDex {
     private const val TAG_PROCESSED_SNS_ID = 0x55070002
     private const val TAG_LIST_ATTACHED = 0x55070003
 
-    private val timeMarkers = listOf(
-        "分钟前", "小时前", "刚刚", "今天", "昨天", "前天", "天前",
-        "minute", "hour", "yesterday", "today"
+    private val TIME_MARKERS = listOf(
+        "分钟", "小时", "刚刚", "天", "前",
+        "min", "hour", "hr", "yesterday", "day", "ago"
     )
     private val timeRegex = Regex("""\d{1,2}[:：]\d{2}""")
 
@@ -201,8 +201,8 @@ object DisplayDetails : ClickableHookItem(), IResolveDex {
         val timeTextView = itemGroup.findViewWhich<TextView> { view ->
             view is TextView && view.isVisible &&
                 run {
-                    val text = view.text
-                    timeMarkers.any { it in text }
+                    val text = view.text.toString().lowercase()
+                    TIME_MARKERS.any { it in text }
                 } }!!
 
         val markedSnsId = timeTextView.getTag(TAG_PROCESSED_SNS_ID) as? Long
