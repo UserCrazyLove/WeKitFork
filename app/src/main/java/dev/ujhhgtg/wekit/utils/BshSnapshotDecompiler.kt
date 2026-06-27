@@ -61,7 +61,7 @@ object BshSnapshotDecompiler {
         return "$result $info"
     }
 
-    private val SECRET_KEY: SecretKey =
+    val SECRET_KEY: SecretKey =
         SecretKeySpec("0123456789abcdef".toByteArray(StandardCharsets.UTF_8), "AES")
 
     private val MAGIC = byteArrayOf('B'.code.toByte(), 'S'.code.toByte(), 'H'.code.toByte(), 'S'.code.toByte())

@@ -144,7 +144,7 @@ object AddMainScreenFab : ClickableFeature() {
         FabItemConfig("5", FabType.START_ACTIVITY, "设置", "Settings", "com.tencent.mm.plugin.setting.ui.setting_new.MainSettingsUI"),
         FabItemConfig("6", FabType.MODULE_SETTINGS, "模块设置", "Extension"),
         FabItemConfig("7", FabType.FORCE_STOP, "强制停止", "Cancel"),
-        FabItemConfig("8", FabType.MARK_ALL_READ, "全部已读", "Check_circle")
+        FabItemConfig("8", FabType.MARK_ALL_READ, "清空未读", "Check_circle")
     )
 
     private fun loadConfig(): List<FabItemConfig> {
@@ -349,7 +349,7 @@ object AddMainScreenFab : ClickableFeature() {
                                     enabled = !hasMarkRead
                                 )
                                 Text(
-                                    "全部已读",
+                                    "清空未读",
                                     color = if (hasMarkRead) Color.Gray else Color.Unspecified,
                                     modifier = Modifier.clickable(enabled = !hasMarkRead) { newType = FabType.MARK_ALL_READ })
                             }

@@ -21,6 +21,10 @@ public class ChatFooter extends FrameLayout {
         throw new RuntimeException("Stub!");
     }
 
+    public void setLastText(String str) {
+        throw new RuntimeException("Stub!");
+    }
+
     public long getLastQuoteMsgId() {
         throw new RuntimeException("Stub!");
     }

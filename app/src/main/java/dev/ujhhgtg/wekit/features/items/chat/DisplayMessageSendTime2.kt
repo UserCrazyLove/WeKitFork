@@ -6,7 +6,7 @@ import android.graphics.Color
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -49,13 +49,12 @@ object DisplayMessageSendTime2 : ClickableFeature(),
     private const val KEY_FONT_SIZE = "display_msg_time_2_font_size"
     private const val KEY_FONT_COLOR = "display_msg_time_2_font_color"
     private const val KEY_POSITION = "display_msg_time_2_position"
+    private const val KEY_PATTERN = "display_msg_time_2_pattern"
     private const val DEFAULT_FONT_SIZE = 10
     private const val DEFAULT_FONT_COLOR = "#FF8D8D8D"
+    private const val DEFAULT_PATTERN = "HH:mm:ss"
     private const val POSITION_TOP = 0
     private const val POSITION_BOTTOM = 1
-    private val timeFormat = ThreadLocal.withInitial {
-        SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    }
 
     override fun onEnable() {
         WeChatMessageViewApi.addListener(this)
@@ -76,6 +75,9 @@ object DisplayMessageSendTime2 : ClickableFeature(),
             var position by remember {
                 mutableIntStateOf(WePrefs.getIntOrDef(KEY_POSITION, POSITION_TOP))
             }
+            var patternInput by remember {
+                mutableStateOf(WePrefs.getStringOrDef(KEY_PATTERN, DEFAULT_PATTERN))
+            }
 
             AlertDialogContent(
                 title = { Text("消息时间样式") },
@@ -91,6 +93,12 @@ object DisplayMessageSendTime2 : ClickableFeature(),
                             onValueChange = { fontColorInput = it },
                             label = { Text("字体颜色 (Hex)") },
                             placeholder = { Text(DEFAULT_FONT_COLOR) }
+                        )
+                        TextField(
+                            value = patternInput,
+                            onValueChange = { patternInput = it },
+                            label = { Text("时间格式 (Java)") },
+                            placeholder = { Text(DEFAULT_PATTERN) }
                         )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -126,9 +134,17 @@ object DisplayMessageSendTime2 : ClickableFeature(),
                             showToast("颜色格式错误")
                             return@Button
                         }
+                        val pattern = patternInput.ifBlank { DEFAULT_PATTERN }
+                        try {
+                            SimpleDateFormat(pattern, Locale.getDefault())
+                        } catch (_: Exception) {
+                            showToast("时间格式错误")
+                            return@Button
+                        }
                         WePrefs.putInt(KEY_FONT_SIZE, size)
                         WePrefs.putString(KEY_FONT_COLOR, fontColorInput)
                         WePrefs.putInt(KEY_POSITION, position)
+                        WePrefs.putString(KEY_PATTERN, pattern)
                         onDismiss()
                     }) { Text("确定") }
                 }
@@ -145,7 +161,7 @@ object DisplayMessageSendTime2 : ClickableFeature(),
         val avatar = findAvatar(view) ?: return
         val wrapper = ensureAvatarWrapper(avatar) ?: return
         val position = WePrefs.getIntOrDef(KEY_POSITION, POSITION_TOP)
-        val timeView = ensureTimeView(wrapper, avatar, position)
+        val timeView = ensureTimeView(wrapper)
 
         if (avatar.visibility != View.VISIBLE) {
             timeView.visibility = View.GONE
@@ -156,6 +172,7 @@ object DisplayMessageSendTime2 : ClickableFeature(),
         timeView.text = formatTime(msgInfo.createTime)
         timeView.textSize = WePrefs.getIntOrDef(KEY_FONT_SIZE, DEFAULT_FONT_SIZE).toFloat()
         timeView.setTextColor(resolveTextColor())
+        positionTimeView(timeView, position)
         timeView.visibility = View.VISIBLE
         wrapper.visibility = View.VISIBLE
         ensureItemPadding(view, position)
@@ -197,9 +214,9 @@ object DisplayMessageSendTime2 : ClickableFeature(),
         return null
     }
 
-    private fun ensureAvatarWrapper(avatar: View): LinearLayout? {
+    private fun ensureAvatarWrapper(avatar: View): FrameLayout? {
         val parent = avatar.parent as? ViewGroup ?: return null
-        if (parent is LinearLayout && parent.tag == WRAPPER_TAG) {
+        if (parent is FrameLayout && parent.tag == WRAPPER_TAG) {
             return parent
         }
 
@@ -210,10 +227,8 @@ object DisplayMessageSendTime2 : ClickableFeature(),
         val originalParams = avatar.layoutParams
         parent.removeView(avatar)
 
-        val wrapper = LinearLayout(parent.context).apply {
+        val wrapper = FrameLayout(parent.context).apply {
             tag = WRAPPER_TAG
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
             clipChildren = false
             clipToPadding = false
             if (originalId != View.NO_ID) {
@@ -224,52 +239,66 @@ object DisplayMessageSendTime2 : ClickableFeature(),
 
         wrapper.addView(
             avatar,
-            LinearLayout.LayoutParams(
+            FrameLayout.LayoutParams(
                 originalParams.width,
                 originalParams.height
-            )
+            ).apply {
+                gravity = Gravity.CENTER
+            }
         )
         parent.addView(wrapper, index, originalParams)
         parent.clipChildren = false
         parent.clipToPadding = false
         (parent.parent as? ViewGroup)?.clipChildren = false
-        wrapper.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
         return wrapper
     }
 
-    private fun ensureTimeView(wrapper: LinearLayout, avatar: View, position: Int): TextView {
-        val layoutParams = LinearLayout.LayoutParams(
+    private fun ensureTimeView(wrapper: FrameLayout): TextView {
+        val layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
-        )
+        ).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        }
         val timeView = wrapper.findViewWithTag<TextView>(TIME_TAG) ?: TextView(wrapper.context).apply {
             tag = TIME_TAG
             gravity = Gravity.CENTER
             includeFontPadding = false
         }
 
-        timeView.translationY = 0f
-
-        val avatarIndex = wrapper.indexOfChild(avatar).takeIf { it >= 0 } ?: 0
-        val targetIndex = if (position == POSITION_TOP) {
-            0
+        if (timeView.parent == null) {
+            wrapper.addView(timeView, layoutParams)
         } else {
-            (avatarIndex + 1).coerceAtMost(wrapper.childCount)
-        }
-        val currentIndex = wrapper.indexOfChild(timeView)
-        if (currentIndex < 0) {
-            wrapper.addView(timeView, targetIndex, layoutParams)
-        } else if (currentIndex != targetIndex) {
-            wrapper.removeView(timeView)
-            val adjustedTargetIndex = if (currentIndex < targetIndex) targetIndex - 1 else targetIndex
-            wrapper.addView(timeView, adjustedTargetIndex, layoutParams)
+            timeView.layoutParams = layoutParams
         }
         return timeView
     }
 
+    private fun positionTimeView(timeView: TextView, position: Int) {
+        val layoutParams = timeView.layoutParams as? FrameLayout.LayoutParams ?: return
+        layoutParams.gravity = if (position == POSITION_TOP) {
+            Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        } else {
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+        }
+        timeView.layoutParams = layoutParams
+        timeView.measure(
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val offset = timeView.measuredHeight.toFloat()
+        timeView.translationY = if (position == POSITION_TOP) -offset else offset
+    }
+
     private fun formatTime(time: Long): String {
         val epochMs = if (time in 1..99_999_999_999L) time * 1000L else time
-        return timeFormat.get()!!.format(Date(epochMs))
+        val pattern = WePrefs.getStringOrDef(KEY_PATTERN, DEFAULT_PATTERN).ifBlank { DEFAULT_PATTERN }
+        val formatter = runCatching {
+            SimpleDateFormat(pattern, Locale.getDefault())
+        }.getOrElse {
+            SimpleDateFormat(DEFAULT_PATTERN, Locale.getDefault())
+        }
+        return formatter.format(Date(epochMs))
     }
 
     private fun resolveTextColor(): Int {

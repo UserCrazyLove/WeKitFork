@@ -1134,6 +1134,235 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
+    fun shareWebpage(
+        talker: String,
+        title: String,
+        description: String,
+        webpageUrl: String,
+        thumbData: ByteArray?,
+        appId: String? = null
+    ): Boolean {
+        return try {
+            val mediaObject = dev.ujhhgtg.wekit.utils.reflection.ClassLoaders.HOST.loadClass("com.tencent.mm.opensdk.modelmsg.WXWebpageObject").newInstance().apply {
+                reflekt().setField("webpageUrl", webpageUrl)
+            }
+            val mediaMessage = WXMediaMessage().apply {
+                this.title = title
+                this.description = description
+                this.thumbData = thumbData
+                reflekt().setField("mediaObject", mediaObject)
+            }
+            methodShareFile.method.invoke(
+                null,
+                mediaMessage,
+                appId ?: "",
+                "",
+                talker,
+                3,
+                null
+            )
+            true
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "shareWebpage failed", e)
+            false
+        }
+    }
+
+    fun shareVideo(
+        talker: String,
+        title: String,
+        description: String,
+        videoUrl: String,
+        thumbData: ByteArray?,
+        appId: String? = null
+    ): Boolean {
+        return try {
+            val mediaObject = dev.ujhhgtg.wekit.utils.reflection.ClassLoaders.HOST.loadClass("com.tencent.mm.opensdk.modelmsg.WXVideoObject").newInstance().apply {
+                reflekt().setField("videoUrl", videoUrl)
+            }
+            val mediaMessage = WXMediaMessage().apply {
+                this.title = title
+                this.description = description
+                this.thumbData = thumbData
+                reflekt().setField("mediaObject", mediaObject)
+            }
+            methodShareFile.method.invoke(
+                null,
+                mediaMessage,
+                appId ?: "",
+                "",
+                talker,
+                3,
+                null
+            )
+            true
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "shareVideo failed", e)
+            false
+        }
+    }
+
+    fun shareText(
+        talker: String,
+        text: String,
+        appId: String? = null
+    ): Boolean {
+        return try {
+            val mediaObject = dev.ujhhgtg.wekit.utils.reflection.ClassLoaders.HOST.loadClass("com.tencent.mm.opensdk.modelmsg.WXTextObject").newInstance().apply {
+                reflekt().setField("text", text)
+            }
+            val mediaMessage = WXMediaMessage().apply {
+                reflekt().setField("mediaObject", mediaObject)
+            }
+            methodShareFile.method.invoke(
+                null,
+                mediaMessage,
+                appId ?: "",
+                "",
+                talker,
+                3,
+                null
+            )
+            true
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "shareText failed", e)
+            false
+        }
+    }
+
+    fun shareMusic(
+        talker: String,
+        title: String,
+        description: String,
+        musicUrl: String,
+        musicDataUrl: String,
+        thumbData: ByteArray?,
+        appId: String? = null
+    ): Boolean {
+        return try {
+            val mediaObject = dev.ujhhgtg.wekit.utils.reflection.ClassLoaders.HOST.loadClass("com.tencent.mm.opensdk.modelmsg.WXMusicObject").newInstance().apply {
+                reflekt().setField("musicUrl", musicUrl)
+                reflekt().setField("musicDataUrl", musicDataUrl)
+            }
+            val mediaMessage = WXMediaMessage().apply {
+                this.title = title
+                this.description = description
+                this.thumbData = thumbData
+                reflekt().setField("mediaObject", mediaObject)
+            }
+            methodShareFile.method.invoke(
+                null,
+                mediaMessage,
+                appId ?: "",
+                "",
+                talker,
+                3,
+                null
+            )
+            true
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "shareMusic failed", e)
+            false
+        }
+    }
+
+    fun shareMusicVideo(
+        talker: String,
+        title: String,
+        description: String,
+        musicUrl: String,
+        musicDataUrl: String,
+        singerName: String,
+        duration: Int,
+        songLyric: String,
+        thumbData: ByteArray?,
+        appId: String? = null
+    ): Boolean {
+        return try {
+            val mediaObject = dev.ujhhgtg.wekit.utils.reflection.ClassLoaders.HOST.loadClass("com.tencent.mm.opensdk.modelmsg.WXMusicVideoObject").newInstance().apply {
+                reflekt().setField("musicUrl", musicUrl)
+                reflekt().setField("musicDataUrl", musicDataUrl)
+                reflekt().setField("singerName", singerName)
+                reflekt().setField("duration", duration)
+                reflekt().setField("songLyric", songLyric)
+            }
+            val mediaMessage = WXMediaMessage().apply {
+                this.title = title
+                this.description = description
+                this.thumbData = thumbData
+                reflekt().setField("mediaObject", mediaObject)
+            }
+            methodShareFile.method.invoke(
+                null,
+                mediaMessage,
+                appId ?: "",
+                "",
+                talker,
+                3,
+                null
+            )
+            true
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "shareMusicVideo failed", e)
+            false
+        }
+    }
+
+    fun shareMiniProgram(
+        talker: String,
+        title: String,
+        description: String,
+        userName: String,
+        path: String,
+        thumbData: ByteArray?,
+        appId: String? = null
+    ): Boolean {
+        return try {
+            val mediaObject = dev.ujhhgtg.wekit.utils.reflection.ClassLoaders.HOST.loadClass("com.tencent.mm.opensdk.modelmsg.WXMiniProgramObject").newInstance().apply {
+                reflekt().setField("webpageUrl", "https://github.com")
+                reflekt().setField("userName", userName)
+                reflekt().setField("path", path)
+            }
+            val mediaMessage = WXMediaMessage().apply {
+                this.title = title
+                this.description = description
+                this.thumbData = thumbData
+                reflekt().setField("mediaObject", mediaObject)
+            }
+            methodShareFile.method.invoke(
+                null,
+                mediaMessage,
+                appId ?: "",
+                "",
+                talker,
+                3,
+                null
+            )
+            true
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "shareMiniProgram failed", e)
+            false
+        }
+    }
+
+    fun sendMediaMsg(talker: String, mediaMessage: Any, appId: String?): Boolean {
+        return try {
+            methodShareFile.method.invoke(
+                null,
+                mediaMessage,
+                appId ?: "",
+                "",
+                talker,
+                3,
+                null
+            )
+            true
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "sendMediaMsg failed", e)
+            false
+        }
+    }
+
     val selfCustomWxId: String
         get() {
             return getSelfAliasMethod.invoke(null) as? String ?: ""

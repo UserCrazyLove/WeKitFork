@@ -24,6 +24,7 @@ import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.utils.AudioUtils
+import dev.ujhhgtg.wekit.utils.BshSnapshotDecompiler
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.getTopMostActivity
@@ -32,11 +33,17 @@ import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
+import dev.ujhhgtg.wekit.utils.reflection.DexKit
+import dev.ujhhgtg.wekit.utils.reflection.asClass
+import dev.ujhhgtg.wekit.utils.reflection.asConstructor
+import dev.ujhhgtg.wekit.utils.reflection.asMethod
 import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.long
 import me.hd.wauxv.data.bean.MsgInfoBean
+import me.hd.wauxv.data.bean.info.FriendInfo
+import me.hd.wauxv.data.bean.info.GroupInfo
 import org.json.JSONArray
 import java.io.File
 import java.io.FileInputStream
@@ -147,6 +154,48 @@ object JavaEngine {
                 }
             } catch (e: Exception) {
                 WeLogger.e(TAG, "onMemberChange execution failed for script ${plugin.name}", e)
+            }
+        }
+    }
+
+    fun executeAllOnNewFriend(
+        scripts: Map<String, JavaPlugin>,
+        wxid: String,
+        ticket: String,
+        scene: Int
+    ) {
+        scripts.values.forEach { plugin ->
+            try {
+                val bshMethod = plugin.interpreter.nameSpace.getMethod(
+                    "onNewFriend",
+                    arrayOf(String::class.java, String::class.java, Integer.TYPE)
+                )
+                bshMethod?.apply {
+                    invoke(arrayOf<Any>(wxid, ticket, scene), plugin.interpreter)
+                    WeLogger.i(TAG, "onNewFriend executed for script ${plugin.name}")
+                }
+            } catch (e: Exception) {
+                WeLogger.e(TAG, "onNewFriend execution failed for script ${plugin.name}", e)
+            }
+        }
+    }
+
+    fun executeAllOnRecvPayMsg(
+        scripts: Map<String, JavaPlugin>,
+        payMsgBean: me.hd.wauxv.data.bean.PayMsgBean
+    ) {
+        scripts.values.forEach { plugin ->
+            try {
+                val bshMethod = plugin.interpreter.nameSpace.getMethod(
+                    "onRecvPayMsg",
+                    arrayOf(Any::class.java)
+                )
+                bshMethod?.apply {
+                    invoke(arrayOf(payMsgBean), plugin.interpreter)
+                    WeLogger.i(TAG, "onRecvPayMsg executed for script ${plugin.name}")
+                }
+            } catch (e: Exception) {
+                WeLogger.e(TAG, "onRecvPayMsg execution failed for script ${plugin.name}", e)
             }
         }
     }
@@ -512,7 +561,7 @@ object JavaEngine {
                     return@BshMethod null
                 }
                 runCatching {
-                    plugin.interpreter.evalSnapshot(snapFile.absolutePath, null)
+                    plugin.interpreter.evalSnapshot(snapFile.absolutePath, BshSnapshotDecompiler.SECRET_KEY)
                 }.onFailure { e ->
                     WeLogger.e(TAG, "evalSnapshot failed for $resolved", e)
                 }.getOrNull()
@@ -551,25 +600,33 @@ object JavaEngine {
 
             // ===== Contacts — Lists =====
 
-            // getFriendList() → list of WeContact objects
+            // getFriendList() → list of FriendInfo objects
             setMethod(BshMethod(
                 "getFriendList", emptyArray<Class<*>>()
             ) {
-                return@BshMethod runCatching { WeDatabaseApi.getFriends() }.getOrDefault(emptyList<Any>())
+                return@BshMethod runCatching {
+                    WeDatabaseApi.getFriends().map { FriendInfo(it) }
+                }.getOrDefault(emptyList<Any>())
             })
 
-            // getGroupList() → list of WeGroup objects
+            // getGroupList() → list of GroupInfo objects
             setMethod(BshMethod(
                 "getGroupList", emptyArray<Class<*>>()
             ) {
-                return@BshMethod runCatching { WeDatabaseApi.getGroups() }.getOrDefault(emptyList<Any>())
+                return@BshMethod runCatching {
+                    WeDatabaseApi.getGroups().map { GroupInfo(it) }
+                }.getOrDefault(emptyList<Any>())
             })
 
-            // getOfficialList() → list of WeOfficialAccount objects
+            // getOfficialList() → list of FriendInfo objects
             setMethod(BshMethod(
                 "getOfficialList", emptyArray<Class<*>>()
             ) {
-                return@BshMethod runCatching { WeDatabaseApi.getOfficialAccounts() }.getOrDefault(emptyList<Any>())
+                return@BshMethod runCatching {
+                    WeDatabaseApi.getOfficialAccounts().map {
+                        FriendInfo(it.wxId, "", "", it.nickname, 0, "", 0L)
+                    }
+                }.getOrDefault(emptyList<Any>())
             })
 
             // getGroupMemberList(groupId) → list of member wxid strings
@@ -743,6 +800,28 @@ object JavaEngine {
                 }.getOrDefault(false)
             })
 
+            // sendImage(toUser, imgPath, appId) → Boolean
+            setMethod(BshMethod(
+                "sendImage", arrayOf(BString, BString, BString)
+            ) {
+                val toUser = it[0] as String
+                val imgPath = it[1] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.sendImage(toUser, imgPath)
+                }.getOrDefault(false)
+            })
+
+            // sendImage(toUser, imgPath, msgId) → Boolean
+            setMethod(BshMethod(
+                "sendImage", arrayOf(BString, BString, java.lang.Long.TYPE)
+            ) {
+                val toUser = it[0] as String
+                val imgPath = it[1] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.sendImage(toUser, imgPath)
+                }.getOrDefault(false)
+            })
+
             // sendVoice(toUser, path) → Boolean (default duration 0)
             setMethod(BshMethod(
                 "sendVoice", arrayOf(BString, BString)
@@ -849,6 +928,17 @@ object JavaEngine {
                 }.getOrDefault(false)
             })
 
+            // sendEmoji(toUser, md5, msgId) → Boolean
+            setMethod(BshMethod(
+                "sendEmoji", arrayOf(BString, BString, java.lang.Long.TYPE)
+            ) {
+                val toUser = it[0] as String
+                val path = it[1] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.sendEmoji(toUser, path)
+                }.getOrDefault(false)
+            })
+
             // sendPat(toUser, patTarget) → Boolean
             setMethod(BshMethod(
                 "sendPat", arrayOf(BString, BString)
@@ -892,6 +982,114 @@ object JavaEngine {
                 val toUser = it[0] as String; val path = it[1] as String
                 return@BshMethod runCatching {
                     WeMessageApi.sendVideo(toUser, path)
+                }.getOrDefault(false)
+            })
+
+            // ===== Sharing/Media Messaging =====
+
+            // shareFile(talker, title, filePath, appId)
+            setMethod(BshMethod("shareFile", arrayOf(BString, BString, BString, BString)) {
+                val talker = it[0] as String
+                val title = it[1] as String
+                val filePath = it[2] as String
+                val appId = it[3] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.sendFile(talker, filePath, title, appId)
+                }.getOrDefault(false)
+            })
+
+            // sendMediaMsg(talker, mediaMessage, appId)
+            setMethod(BshMethod("sendMediaMsg", arrayOf(BString, Any::class.java, BString)) {
+                val talker = it[0] as String
+                val mediaMessage = it[1]
+                val appId = it[2] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.sendMediaMsg(talker, mediaMessage, appId)
+                }.getOrDefault(false)
+            })
+
+            // shareWebpage(talker, title, description, webpageUrl, thumbData, appId)
+            setMethod(BshMethod("shareWebpage", arrayOf(BString, BString, BString, BString, ByteArray::class.java, BString)) {
+                val talker = it[0] as String
+                val title = it[1] as String
+                val description = it[2] as String
+                val webpageUrl = it[3] as String
+                val thumbData = it[4] as? ByteArray
+                val appId = it[5] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.shareWebpage(talker, title, description, webpageUrl, thumbData, appId)
+                }.getOrDefault(false)
+            })
+
+            // shareVideo(talker, title, description, videoUrl, thumbData, appId)
+            setMethod(BshMethod("shareVideo", arrayOf(BString, BString, BString, BString, ByteArray::class.java, BString)) {
+                val talker = it[0] as String
+                val title = it[1] as String
+                val description = it[2] as String
+                val videoUrl = it[3] as String
+                val thumbData = it[4] as? ByteArray
+                val appId = it[5] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.shareVideo(talker, title, description, videoUrl, thumbData, appId)
+                }.getOrDefault(false)
+            })
+
+            // shareText(talker, text, appId)
+            setMethod(BshMethod("shareText", arrayOf(BString, BString, BString)) {
+                val talker = it[0] as String
+                val text = it[1] as String
+                val appId = it[2] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.shareText(talker, text, appId)
+                }.getOrDefault(false)
+            })
+
+            // shareMusic(talker, title, description, musicUrl, musicDataUrl, thumbData, appId)
+            setMethod(BshMethod("shareMusic", arrayOf(BString, BString, BString, BString, BString, ByteArray::class.java, BString)) {
+                val talker = it[0] as String
+                val title = it[1] as String
+                val description = it[2] as String
+                val musicUrl = it[3] as String
+                val musicDataUrl = it[4] as String
+                val thumbData = it[5] as? ByteArray
+                val appId = it[6] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.shareMusic(talker, title, description, musicUrl, musicDataUrl, thumbData, appId)
+                }.getOrDefault(false)
+            })
+
+            // shareMusicVideo(talker, title, description, musicUrl, musicDataUrl, singerName, duration, songLyric, thumbData, appId)
+            setMethod(BshMethod("shareMusicVideo", arrayOf(
+                BString, BString, BString, BString, BString, BString, int, BString, ByteArray::class.java, BString
+            )) {
+                val talker = it[0] as String
+                val title = it[1] as String
+                val description = it[2] as String
+                val musicUrl = it[3] as String
+                val musicDataUrl = it[4] as String
+                val singerName = it[5] as String
+                val duration = it[6] as Int
+                val songLyric = it[7] as String
+                val thumbData = it[8] as? ByteArray
+                val appId = it[9] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.shareMusicVideo(talker, title, description, musicUrl, musicDataUrl, singerName, duration, songLyric, thumbData, appId)
+                }.getOrDefault(false)
+            })
+
+            // shareMiniProgram(talker, title, description, userName, path, thumbData, appId)
+            setMethod(BshMethod("shareMiniProgram", arrayOf(
+                BString, BString, BString, BString, BString, ByteArray::class.java, BString
+            )) {
+                val talker = it[0] as String
+                val title = it[1] as String
+                val description = it[2] as String
+                val userName = it[3] as String
+                val path = it[4] as String
+                val thumbData = it[5] as? ByteArray
+                val appId = it[6] as String
+                return@BshMethod runCatching {
+                    WeMessageApi.shareMiniProgram(talker, title, description, userName, path, thumbData, appId)
                 }.getOrDefault(false)
             })
 
@@ -956,8 +1154,6 @@ object JavaEngine {
             })
 
             // ===== Chatroom Management =====
-            // WAuxv original: uses NetScene constructors via DexKit-resolved fields
-            // WeKit: delegates to WeChatroomApi which resolves same constructors
 
             // addChatroomMember(groupId, memberWxId) — add single member
             setMethod(BshMethod(
@@ -1061,27 +1257,27 @@ object JavaEngine {
                 @Suppress("UNCHECKED_CAST")
                 val usingStrings = it[0] as List<String>
                 return@BshMethod runCatching {
-                    dev.ujhhgtg.wekit.utils.reflection.DexKit.findClass {
+                    DexKit.findClass {
                         matcher {
-                            usingEqStrings(usingStrings)
+                            usingStrings(usingStrings)
                         }
-                    }.map { data -> data.getInstance(ClassLoaders.HOST) }
+                    }.map { data -> data.asClass }
                 }.getOrDefault(emptyList<Any>())
             })
             setMethod(BshMethod("findMemberList", arrayOf(List::class.java)) {
                 @Suppress("UNCHECKED_CAST")
                 val usingStrings = it[0] as List<String>
                 return@BshMethod runCatching {
-                    dev.ujhhgtg.wekit.utils.reflection.DexKit.findMethod {
+                    DexKit.findMethod {
                         matcher {
-                            usingEqStrings(usingStrings)
+                            usingStrings(usingStrings)
                         }
                     }.mapNotNull { data ->
                         val name = data.name
                         if (name == "<init>" || name == "<clinit>") {
-                            data.getConstructorInstance(ClassLoaders.HOST)
+                            data.asConstructor
                         } else {
-                            data.getMethodInstance(ClassLoaders.HOST)
+                            data.asMethod
                         }
                     }
                 }.getOrDefault(emptyList<Any>())
@@ -1476,7 +1672,7 @@ object JavaEngine {
             })
             setMethod(BshMethod("evalSnapshot", arrayOf(InputStream::class.java)) { args ->
                 runCatching {
-                    plugin.interpreter.evalSnapshot(args[0] as InputStream, null)
+                    plugin.interpreter.evalSnapshot(args[0] as InputStream, BshSnapshotDecompiler.SECRET_KEY)
                 }.onFailure { WeLogger.e(TAG, "evalSnapshot failed", it) }
             })
             setMethod(BshMethod("uploadDeviceStep", arrayOf(java.lang.Long.TYPE)) { args ->

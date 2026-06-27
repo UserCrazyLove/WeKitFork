@@ -16,14 +16,20 @@ import android.os.Build
 import android.view.Surface
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.robv.android.xposed.XC_MethodHook
@@ -36,6 +42,7 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -48,15 +55,19 @@ import kotlin.io.path.div
 
 @Feature(
     name = "虚拟视频通话", categories = ["聊天", "音视频通话"],
-    description = "在微信视频通话相机预览中播放本地视频"
+    description = "在微信视频通话相机预览中播放本地视频或网络直播流"
 )
 object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     private val TAG = This.Class.simpleName
 
-    private val DEFAULT_VIDEO_PATH by lazy {
+    private val VIDEO_PATH by lazy {
         KnownPaths.moduleData / "virtual_voip_video.mp4"
     }
+
+    private var sourceType by prefOption("virtual_voip_source_type", "file")
+    private var streamUrl by prefOption("virtual_voip_stream_url", "")
+    private var streamOrientation by prefOption("virtual_voip_stream_orientation", "auto")
 
     private val CAMERA2_METHODS = setOf(
         "createCaptureSession",
@@ -80,13 +91,11 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         @Synchronized get() = cachedDummySurface?.takeIf { it.isValid }
             ?: Surface(dummySurfaceTexture).also { cachedDummySurface = it }
 
-    // 缓存视频方向解析结果
     @Volatile
     private var lastCheckedKey: String? = null
     @Volatile
     private var isVideoPortraitCached: Boolean = false
 
-    // 防止 Camera2 hook 内部调用造成的堆栈溢出
     private val camera2HookBypass = ThreadLocal.withInitial { false }
 
     private val methodLaunchVoipPage by dexMethod {
@@ -103,10 +112,17 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     private val isVideoPortrait: Boolean
         get() {
-            val file = DEFAULT_VIDEO_PATH.toFile()
+            val orientation = streamOrientation
+            if (sourceType == "stream") {
+                return orientation != "landscape"
+            }
+
+            if (orientation == "portrait") return true
+            if (orientation == "landscape") return false
+
+            val file = VIDEO_PATH.toFile()
             if (!file.exists()) return false
 
-            // generate cache key
             val currentKey = "${file.absolutePath}_${file.lastModified()}_${file.length()}"
             if (lastCheckedKey == currentKey) {
                 return isVideoPortraitCached
@@ -135,13 +151,11 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         }
 
     override fun onEnable() {
-        // main hook target
         methodStartCamera.hookBefore {
             isVoipUiActive = true
             WeLogger.d(TAG, "entered voip ui: MicroMsg.ILinkVoIPCameraHelper")
         }
 
-        // backup hook target 1
         methodLaunchVoipPage.hookBefore {
             isVoipUiActive = true
             WeLogger.d(TAG, "entered voip ui: MicroMsg.VoIPMP.Launcher")
@@ -153,7 +167,6 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         ).forEach { className ->
             className.toClass().apply {
                 firstMethod { name = "onCreate" }.hookBefore {
-                    // backup hook target 2
                     isVoipUiActive = true
                     WeLogger.d(TAG, "entered voip ui: $className")
                 }
@@ -257,57 +270,146 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
     override fun onClick(context: Context) {
         showComposeDialog(context) {
-            var fileExists by remember { mutableStateOf(DEFAULT_VIDEO_PATH.toFile().exists()) }
+            var currentType by remember { mutableStateOf(sourceType) }
+            var urlText by remember { mutableStateOf(streamUrl) }
+
+            // 确保如果当前保存的配置是 auto 却切换到了 stream 模式时，降级显示为 portrait
+            var orientationText by remember {
+                mutableStateOf(if (currentType == "stream" && streamOrientation == "auto") "portrait" else streamOrientation)
+            }
+            var fileExists by remember { mutableStateOf(VIDEO_PATH.toFile().exists()) }
 
             AlertDialogContent(
-                title = { Text("虚拟视频通话") },
+                title = { Text("虚拟视频通话配置") },
                 text = {
                     DefaultColumn {
-                        Button(
-                            onClick = {
-                                TransparentActivity.launch(context) {
-                                    val selMediaLauncher = registerForActivityResult(
-                                        ActivityResultContracts.PickVisualMedia()
-                                    ) { uri ->
-                                        finish()
-                                        if (uri == null) return@registerForActivityResult
-
-                                        contentResolver.openInputStream(uri)?.use { input ->
-                                            DEFAULT_VIDEO_PATH.toFile().outputStream().use { output ->
-                                                input.copyTo(output)
-                                            }
-                                        } ?: run {
-                                            WeLogger.e(TAG, "failed to open input stream")
-                                            showToast(context, "视频文件打开失败!")
-                                            return@registerForActivityResult
-                                        }
-
-                                        fileExists = true
-                                        showToast(context, "视频文件导入成功")
-                                    }
-
-                                    selMediaLauncher.launch(
-                                        PickVisualMediaRequest(
-                                            ActivityResultContracts.PickVisualMedia.VideoOnly
-                                        )
-                                    )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = currentType == "file",
+                                onClick = {
+                                    currentType = "file"
+                                    sourceType = "file"
+                                    // 恢复为保存的全局文件方向配置
+                                    orientationText = streamOrientation
                                 }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("选择本地视频")
+                            )
+                            Text("本地文件", modifier = Modifier.clickable {
+                                currentType = "file"
+                                sourceType = "file"
+                                orientationText = streamOrientation
+                            })
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            RadioButton(
+                                selected = currentType == "stream",
+                                onClick = {
+                                    currentType = "stream"
+                                    sourceType = "stream"
+                                    // 网络流不支持自动，若当前为 auto 则强制修正为 portrait
+                                    if (orientationText == "auto") {
+                                        orientationText = "portrait"
+                                        streamOrientation = "portrait"
+                                    }
+                                }
+                            )
+                            Text("网络流地址", modifier = Modifier.clickable {
+                                currentType = "stream"
+                                sourceType = "stream"
+                                if (orientationText == "auto") {
+                                    orientationText = "portrait"
+                                    streamOrientation = "portrait"
+                                }
+                            })
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(
-                            text = if (fileExists) {
-                                "当前视频文件已就绪"
-                            } else {
-                                "当前无视频文件, 会自动放行真实相机"
+                        if (currentType == "file") {
+                            Button(
+                                onClick = {
+                                    TransparentActivity.launch(context) {
+                                        val selMediaLauncher = registerForActivityResult(
+                                            ActivityResultContracts.PickVisualMedia()
+                                        ) { uri ->
+                                            finish()
+                                            if (uri == null) return@registerForActivityResult
+
+                                            contentResolver.openInputStream(uri)?.use { input ->
+                                                VIDEO_PATH.toFile().outputStream().use { output ->
+                                                    input.copyTo(output)
+                                                }
+                                            } ?: run {
+                                                WeLogger.e(TAG, "failed to open input stream")
+                                                showToast(context, "视频文件打开失败!")
+                                                return@registerForActivityResult
+                                            }
+
+                                            fileExists = true
+                                            showToast(context, "视频文件导入成功")
+                                        }
+
+                                        selMediaLauncher.launch(
+                                            PickVisualMediaRequest(
+                                                ActivityResultContracts.PickVisualMedia.VideoOnly
+                                            )
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("选择本地视频")
                             }
-                        )
-                        Text("固定路径: $DEFAULT_VIDEO_PATH")
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = if (fileExists) "当前视频文件已就绪" else "当前无视频文件, 会自动放行真实相机"
+                            )
+                            Text("固定路径: $VIDEO_PATH")
+                        } else {
+                            OutlinedTextField(
+                                value = urlText,
+                                onValueChange = {
+                                    urlText = it
+                                    streamUrl = it
+                                },
+                                label = { Text("输入流媒体 URL (HTTP/HLS/RTSP)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 始终显示方向设置项
+                        Text("视频显示方向:")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (currentType == "file") {
+                                RadioButton(
+                                    selected = orientationText == "auto",
+                                    onClick = { orientationText = "auto"; streamOrientation = "auto" }
+                                )
+                                Text("自动", modifier = Modifier.clickable { orientationText = "auto"; streamOrientation = "auto" })
+
+                                Spacer(modifier = Modifier.width(16.dp))
+                            }
+
+                            RadioButton(
+                                selected = orientationText == "portrait",
+                                onClick = { orientationText = "portrait"; streamOrientation = "portrait" }
+                            )
+                            Text("竖屏 (Portrait)", modifier = Modifier.clickable { orientationText = "portrait"; streamOrientation = "portrait" })
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            RadioButton(
+                                selected = orientationText == "landscape",
+                                onClick = { orientationText = "landscape"; streamOrientation = "landscape" }
+                            )
+                            Text("横屏 (Landscape)", modifier = Modifier.clickable { orientationText = "landscape"; streamOrientation = "landscape" })
+                        }
                     }
                 },
                 confirmButton = {
@@ -412,7 +514,7 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
     }
 
     private val shouldInterceptCamera: Boolean
-        get() = isVoipUiActive && DEFAULT_VIDEO_PATH.toFile().exists()
+        get() = isVoipUiActive && (sourceType == "file" && VIDEO_PATH.toFile().exists() || sourceType == "stream" && streamUrl.isNotEmpty())
 
     @Synchronized
     private fun startVirtualVideo(surface: Surface, ownsSurface: Boolean) {
@@ -421,8 +523,12 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
             return
         }
 
-        val videoFile = DEFAULT_VIDEO_PATH.toFile()
-        if (!videoFile.exists()) return
+        val type = sourceType
+        val url = streamUrl
+        val file = VIDEO_PATH.toFile()
+
+        if (type == "file" && !file.exists()) return
+        if (type == "stream" && url.isEmpty()) return
 
         releasePlayer("restart")
 
@@ -431,9 +537,13 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
         ownedPlaybackSurface = if (ownsSurface) surface else null
 
         runCatching {
-            player.setDataSource(videoFile.absolutePath)
+            if (type == "file") {
+                player.setDataSource(file.absolutePath)
+            } else {
+                player.setDataSource(url)
+            }
             player.setSurface(surface)
-            player.isLooping = true
+            player.isLooping = type == "file"
             player.setVolume(0f, 0f)
             player.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT)
             player.setOnPreparedListener { preparedPlayer ->
@@ -450,7 +560,8 @@ object VirtualVoipVideo : ClickableFeature(), IResolveDex {
             }
             player.prepareAsync()
         }.onFailure {
-            WeLogger.e(TAG, "failed to prepare virtual video: ${videoFile.absolutePath}", it)
+            val sourceLocation = if (type == "file") file.absolutePath else url
+            WeLogger.e(TAG, "failed to prepare virtual video: $sourceLocation", it)
             releasePlayer("prepare failed")
         }
     }

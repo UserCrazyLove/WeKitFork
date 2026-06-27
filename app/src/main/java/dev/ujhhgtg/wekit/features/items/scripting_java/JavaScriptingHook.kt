@@ -5,6 +5,8 @@ import bsh.Interpreter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
+import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -14,6 +16,8 @@ import dev.ujhhgtg.wekit.features.items.chat.ChatInputBarEnhancements
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirectoriesNoThrow
+import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlAttr
+import dev.ujhhgtg.wekit.utils.serialization.XmlUtils.extractXmlTag
 import me.hd.wauxv.data.bean.MsgInfoBean
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
@@ -24,13 +28,19 @@ import kotlin.io.path.name
 import kotlin.io.path.readText
 
 @Feature(name = "脚本引擎 (Java)", categories = ["脚本 (Java)"], description = "执行 Java 脚本")
-object JavaScriptingHook : SwitchFeature(), WeDatabaseListenerApi.IUpdateListener {
+object JavaScriptingHook : SwitchFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener, WeDatabaseListenerApi.IInsertListener {
 
     private val TAG = This.Class.simpleName
 
     private val SCRIPTS_DIR = (KnownPaths.moduleData / "scripts_java").createDirectoriesNoThrow()
 
     val scripts = ConcurrentHashMap<String, JavaPlugin>()
+
+    private val methodPayMsg by dexMethod {
+        matcher {
+            usingEqStrings("[onRecv PayerMsg]，newMsg.msgType：%s")
+        }
+    }
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
@@ -47,6 +57,12 @@ object JavaScriptingHook : SwitchFeature(), WeDatabaseListenerApi.IUpdateListene
             }.get()!! as ChatFooter
             val text = chatFooter.lastText
             JavaEngine.executeAllOnClickSendBtn(scripts, this, text)
+        }
+
+        methodPayMsg.hookBefore {
+            val g2Var = args[0] ?: return@hookBefore
+            val payMsgBean = me.hd.wauxv.data.bean.PayMsgBean(g2Var)
+            JavaEngine.executeAllOnRecvPayMsg(scripts, payMsgBean)
         }
 
         WeLogger.d(TAG, "loading java scripts...")
@@ -78,10 +94,29 @@ object JavaScriptingHook : SwitchFeature(), WeDatabaseListenerApi.IUpdateListene
     }
 
     override fun onDisable() {
-        WeDatabaseListenerApi.removeListener(this)
+        WeDatabaseListenerApi.removeListener(this as WeDatabaseListenerApi.IUpdateListener)
+        WeDatabaseListenerApi.removeListener(this as WeDatabaseListenerApi.IInsertListener)
         scripts.clear()
         JavaHookApi.unhookEverything()
         JavaEngine.executeAllOnUnload(scripts)
+    }
+
+    override fun onInsert(table: String, values: ContentValues) {
+        if (table == "fmessage_msginfo") {
+            val isSend = values.getAsInteger("isSend") ?: 0
+            if (isSend == 0) {
+                val msgContent = values.getAsString("msgContent") ?: ""
+                val fromusername = extractXmlAttr(msgContent, "fromusername").takeIf { it.isNotEmpty() }
+                    ?: extractXmlTag(msgContent, "fromusername")
+                val ticket = extractXmlAttr(msgContent, "ticket").takeIf { it.isNotEmpty() }
+                    ?: extractXmlTag(msgContent, "ticket")
+                val sceneStr = extractXmlAttr(msgContent, "scene").takeIf { it.isNotEmpty() }
+                    ?: extractXmlTag(msgContent, "scene")
+                val scene = sceneStr.toIntOrNull() ?: 0
+
+                JavaEngine.executeAllOnNewFriend(scripts, fromusername, ticket, scene)
+            }
+        }
     }
 
     override fun onUpdate(

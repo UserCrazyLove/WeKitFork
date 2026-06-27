@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Read Receipts</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; padding: 2rem; }
+  .container { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+  .controls { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .controls input { padding: 0.5rem 0.75rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; flex: 1; min-width: 200px; }
+  .controls button { padding: 0.5rem 1rem; border: none; border-radius: 6px; font-size: 0.9rem; cursor: pointer; }
+  .btn-primary { background: #2563eb; color: #fff; }
+  .btn-secondary { background: #6b7280; color: #fff; }
+  .controls button:hover { filter: brightness(1.1); }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  th, td { text-align: left; padding: 0.75rem 1rem; font-size: 0.875rem; }
+  th { background: #f9fafb; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
+  td { border-bottom: 1px solid #f3f4f6; }
+  tr:hover td { background: #f9fafb; }
+  .error { color: #dc2626; margin-bottom: 1rem; }
+  .loading { color: #6b7280; margin-bottom: 1rem; }
+  .empty { color: #9ca3af; text-align: center; padding: 2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Read Receipts</h1>
+  <div class="controls">
+    <button class="btn-primary" onclick="loadAll()">Load All</button>
+    <span style="color:#9ca3af">or</span>
+    <input id="uuidInput" type="text" placeholder="Enter UUID..." />
+    <button class="btn-secondary" onclick="loadByUuid()">Query UUID</button>
+    <input id="msgFilter" type="text" placeholder="Filter by message..." />
+  </div>
+  <div id="status"></div>
+  <table>
+    <thead><tr><th>UUID</th><th>Message</th><th>IP</th><th>Timestamp</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+<script>
+const tbody = document.getElementById('tbody');
+const status = document.getElementById('status');
+function filterUrl(base) {
+  const q = document.getElementById('msgFilter').value.trim();
+  return q ? base + '?q=' + encodeURIComponent(q) : base;
+}
+async function loadAll() {
+  await fetchData(filterUrl('/receipts'));
+}
+async function loadByUuid() {
+  const uuid = document.getElementById('uuidInput').value.trim();
+  if (!uuid) { status.innerHTML = '<div class="error">Please enter a UUID</div>'; return; }
+  await fetchData(filterUrl('/receipts/' + encodeURIComponent(uuid)));
+}
+async function fetchData(url) {
+  status.innerHTML = '<div class="loading">Loading...</div>';
+  tbody.innerHTML = '';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const text = await res.text();
+      status.innerHTML = '<div class="error">HTTP ' + res.status + ': ' + text + '</div>';
+      return;
+    }
+    const data = await res.json();
+    status.innerHTML = '';
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td class="empty" colspan="4">No receipts found</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(r => '<tr><td>' + esc(r.uuid) + '</td><td>' + esc(r.msg) + '</td><td>' + esc(r.ip) + '</td><td>' + esc(r.timestamp) + '</td></tr>').join('');
+  } catch (e) {
+    status.innerHTML = '<div class="error">Network error: ' + esc(e.message) + '</div>';
+  }
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+document.getElementById('uuidInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') loadByUuid(); });
+</script>
+</body>
+</html>
