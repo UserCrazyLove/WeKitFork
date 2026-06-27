@@ -291,6 +291,8 @@ object DisPlayMessageSendTime : ClickableFeature(),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
+        layoutParams.width = timeView.measuredWidth
+        timeView.layoutParams = layoutParams
         val offset = timeView.measuredHeight.toFloat()
         timeView.translationY = if (position == POSITION_TOP) -offset else offset
     }
