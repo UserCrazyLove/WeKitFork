@@ -27,7 +27,7 @@ import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -40,8 +40,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@Feature(name = "显示消息发送时间2", categories = ["聊天"], description = "在头像周围显示消息发送时间")
-object DisplayMessageSendTime2 : ClickableFeature(),
+@Feature(name = "显示消息发送时间", categories = ["聊天"], description = "在头像周围显示消息发送时间")
+object DisPlayMessageSendTime : ClickableFeature(),
     WeChatMessageViewApi.ICreateViewListener {
 
     private const val WRAPPER_TAG = "wekit_message_send_time_2_wrapper"
@@ -55,6 +55,10 @@ object DisplayMessageSendTime2 : ClickableFeature(),
     private const val DEFAULT_PATTERN = "HH:mm:ss"
     private const val POSITION_TOP = 0
     private const val POSITION_BOTTOM = 1
+    private var fontSize by prefOption(KEY_FONT_SIZE, DEFAULT_FONT_SIZE)
+    private var fontColor by prefOption(KEY_FONT_COLOR, DEFAULT_FONT_COLOR)
+    private var position by prefOption(KEY_POSITION, POSITION_TOP)
+    private var pattern by prefOption(KEY_PATTERN, DEFAULT_PATTERN)
 
     override fun onEnable() {
         WeChatMessageViewApi.addListener(this)
@@ -67,16 +71,12 @@ object DisplayMessageSendTime2 : ClickableFeature(),
     override fun onClick(context: Context) {
         showComposeDialog(context) {
             var fontSizeInput by remember {
-                mutableStateOf(WePrefs.getIntOrDef(KEY_FONT_SIZE, DEFAULT_FONT_SIZE).toString())
+                mutableStateOf(fontSize.toString())
             }
-            var fontColorInput by remember {
-                mutableStateOf(WePrefs.getStringOrDef(KEY_FONT_COLOR, DEFAULT_FONT_COLOR))
-            }
-            var position by remember {
-                mutableIntStateOf(WePrefs.getIntOrDef(KEY_POSITION, POSITION_TOP))
-            }
+            var fontColorInput by remember { mutableStateOf(fontColor) }
+            var selectedPosition by remember { mutableIntStateOf(position) }
             var patternInput by remember {
-                mutableStateOf(WePrefs.getStringOrDef(KEY_PATTERN, DEFAULT_PATTERN))
+                mutableStateOf(pattern)
             }
 
             AlertDialogContent(
@@ -110,13 +110,13 @@ object DisplayMessageSendTime2 : ClickableFeature(),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             FilterChip(
-                                selected = position == POSITION_TOP,
-                                onClick = { position = POSITION_TOP },
+                                selected = selectedPosition == POSITION_TOP,
+                                onClick = { selectedPosition = POSITION_TOP },
                                 label = { Text("头像上方") }
                             )
                             FilterChip(
-                                selected = position == POSITION_BOTTOM,
-                                onClick = { position = POSITION_BOTTOM },
+                                selected = selectedPosition == POSITION_BOTTOM,
+                                onClick = { selectedPosition = POSITION_BOTTOM },
                                 label = { Text("头像下方") }
                             )
                         }
@@ -141,10 +141,10 @@ object DisplayMessageSendTime2 : ClickableFeature(),
                             showToast("时间格式错误")
                             return@Button
                         }
-                        WePrefs.putInt(KEY_FONT_SIZE, size)
-                        WePrefs.putString(KEY_FONT_COLOR, fontColorInput)
-                        WePrefs.putInt(KEY_POSITION, position)
-                        WePrefs.putString(KEY_PATTERN, pattern)
+                        fontSize = size
+                        fontColor = fontColorInput
+                        position = selectedPosition
+                        this@DisPlayMessageSendTime.pattern = pattern
                         onDismiss()
                     }) { Text("确定") }
                 }
@@ -160,7 +160,6 @@ object DisplayMessageSendTime2 : ClickableFeature(),
         val msgInfo = WeChatMessageViewApi.getMsgInfoFromParam(param)
         val avatar = findAvatar(view) ?: return
         val wrapper = ensureAvatarWrapper(avatar) ?: return
-        val position = WePrefs.getIntOrDef(KEY_POSITION, POSITION_TOP)
         val timeView = ensureTimeView(wrapper)
 
         if (avatar.visibility != View.VISIBLE) {
@@ -170,7 +169,7 @@ object DisplayMessageSendTime2 : ClickableFeature(),
         }
 
         timeView.text = formatTime(msgInfo.createTime)
-        timeView.textSize = WePrefs.getIntOrDef(KEY_FONT_SIZE, DEFAULT_FONT_SIZE).toFloat()
+        timeView.textSize = fontSize.toFloat()
         timeView.setTextColor(resolveTextColor())
         positionTimeView(timeView, position)
         timeView.visibility = View.VISIBLE
@@ -264,7 +263,11 @@ object DisplayMessageSendTime2 : ClickableFeature(),
             tag = TIME_TAG
             gravity = Gravity.CENTER
             includeFontPadding = false
+            maxLines = 1
+            setSingleLine(true)
         }
+        timeView.maxLines = 1
+        timeView.setSingleLine(true)
 
         if (timeView.parent == null) {
             wrapper.addView(timeView, layoutParams)
@@ -292,7 +295,7 @@ object DisplayMessageSendTime2 : ClickableFeature(),
 
     private fun formatTime(time: Long): String {
         val epochMs = if (time in 1..99_999_999_999L) time * 1000L else time
-        val pattern = WePrefs.getStringOrDef(KEY_PATTERN, DEFAULT_PATTERN).ifBlank { DEFAULT_PATTERN }
+        val pattern = pattern.ifBlank { DEFAULT_PATTERN }
         val formatter = runCatching {
             SimpleDateFormat(pattern, Locale.getDefault())
         }.getOrElse {
@@ -302,9 +305,8 @@ object DisplayMessageSendTime2 : ClickableFeature(),
     }
 
     private fun resolveTextColor(): Int {
-        val color = WePrefs.getStringOrDef(KEY_FONT_COLOR, DEFAULT_FONT_COLOR)
         return try {
-            color.toColorInt()
+            fontColor.toColorInt()
         } catch (_: Exception) {
             Color.parseColor(DEFAULT_FONT_COLOR)
         }
