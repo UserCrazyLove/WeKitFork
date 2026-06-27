@@ -1,17 +1,18 @@
-@file:Suppress("NOTHING_TO_INLINE")
+@file:Suppress("NOTHING_TO_INLINE", "unused")
 
 package dev.ujhhgtg.wekit.features.api.core.models
 
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeApi
-import dev.ujhhgtg.wekit.utils.removeWxIdPrefix
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
-import dev.ujhhgtg.wekit.utils.serialization.XmlJsonParser
+import dev.ujhhgtg.wekit.utils.serialization.NativeXmlParser
 import dev.ujhhgtg.wekit.utils.serialization.asInt
 import dev.ujhhgtg.wekit.utils.serialization.asLong
 import dev.ujhhgtg.wekit.utils.serialization.asString
 import dev.ujhhgtg.wekit.utils.serialization.get
 import dev.ujhhgtg.wekit.utils.serialization.getByPath
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
+import dev.ujhhgtg.wekit.utils.strings.removeWxIdPrefix
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonArray
@@ -37,12 +38,12 @@ class MessageInfo(val instance: Any) {
             return text
         }
 
-    val imagePath by lazy { getFieldByName<String>(instance, "field_imgPath") }
+    val imagePath by lazy { getFieldByName<String?>(instance, "field_imgPath") }
     val lvBuffer by lazy { getFieldByName<ByteArray>(instance, "field_lvbuffer") }
     val talkerId by lazy { getFieldByName<Int>(instance, "field_talkerId") }
     val seq by lazy { getFieldByName<Long>(instance, "field_msgSeq") }
 
-    val isInGroupChat = talker.endsWith("@chatroom") || talker.endsWith("@im.chatroom")
+    val isInGroupChat = talker.isGroupChatWxId
     val isOfficialAccount = talker.startsWith("gh_")
     val sender by lazy {
         @Suppress("DEPRECATION")
@@ -89,9 +90,47 @@ class MessageInfo(val instance: Any) {
         return TransferMessage(content)
     }
 
-    class PatMessage(jsonString: String) {
+    fun toFileMessage(): FileMessage? {
+        if (type != MessageType.FILE)
+            return null
 
-        private val json = DefaultJson.parseToJsonElement(jsonString)
+        return FileMessage(content)
+    }
+
+    fun toImageMessage(): ImageMessage? {
+        if (type != MessageType.IMAGE)
+            return null
+
+        return ImageMessage(content)
+    }
+
+    class FileMessage(xmlStr: String) {
+
+        private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
+
+        val title by lazy { xml.getByPath("msg.appmsg.title")!!.asString }
+        val size by lazy { xml.getByPath("msg.appmsg.appattach.totallen")!!.asLong }
+        val ext by lazy { xml.getByPath("msg.appmsg.appattach.fileext")!!.asString }
+        val md5 by lazy { xml.getByPath("msg.appmsg.md5")!!.asString }
+        val url by lazy { xml.getByPath("msg.appmsg.appattach.cdnattachurl")!!.asString }
+        val key by lazy { xml.getByPath("msg.appmsg.appattach.aeskey")!!.asString }
+    }
+
+    class ImageMessage(xmlStr: String) {
+
+        private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
+
+        val md5 by lazy { xml.getByPath("msg.img.md5")!!.asString }
+        val bigImgUrl by lazy { xml.getByPath("msg.img.cdnbigimgurl")!!.asString }
+        val midImgUrl by lazy { xml.getByPath("msg.img.cdnmidimgurl")!!.asString }
+        val thumbUrl by lazy { xml.getByPath("msg.img.cdnthumburl")!!.asString }
+        val aesKey by lazy { xml.getByPath("msg.img.aeskey")!!.asString }
+    }
+
+    class PatMessage(jsonStr: String) {
+
+        private val json = DefaultJson.parseToJsonElement(jsonStr)
+
         val createTime by lazy { recordObj["createTime"]!!.asLong }
         val fromUser by lazy { recordObj["fromUser"]!!.asString }
         val pattedUser by lazy { recordObj["pattedUser"]!!.asString }
@@ -110,40 +149,39 @@ class MessageInfo(val instance: Any) {
         }
     }
 
-    class QuoteMessage(jsonString: String) {
-        private val json = XmlJsonParser.toJsonObject(jsonString.cleanupXml())
+    class QuoteMessage(xmlStr: String) {
+        private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
-        val title by lazy { json.getByPath("msg.appmsg.title")!!.asString }
+        val title by lazy { xml.getByPath("msg.appmsg.title")!!.asString }
+        val chatusr by lazy { xml.getByPath("msg.appmsg.refermsg.chatusr")!!.asString }
+        val displayname by lazy { xml.getByPath("msg.appmsg.refermsg.displayname")!!.asString }
+        val msgsource by lazy { xml.getByPath("msg.appmsg.refermsg.msgsource")!!.asString }
+        val svrid by lazy { xml.getByPath("msg.appmsg.refermsg.svrid")!!.asString.toLong() }
+        val fromusr by lazy { xml.getByPath("msg.appmsg.refermsg.fromusr")!!.asString }
+        val type by lazy { xml.getByPath("msg.appmsg.refermsg.type")!!.asString.toInt() }
+        val content by lazy { xml.getByPath("msg.appmsg.refermsg.content")!!.asString }
     }
 
-    class TransferMessage(jsonString: String) {
+    class TransferMessage(xmlStr: String) {
 
-        private val json = XmlJsonParser.toJsonObject(jsonString.cleanupXml())
+        private val xml = NativeXmlParser.toXmlObject(xmlStr.cleanupXml())
 
+        val title by lazy { xml.getByPath("msg.appmsg.title")!!.asString }
+        val des by lazy { xml.getByPath("msg.appmsg.des")!!.asString }
         // 'transcationid' is WeChat's typo
-        // We extract it directly from the raw XML to prevent floating-point precision loss.
-        val transactionId by lazy {
-            extractXmlTag(jsonString, "transcationid")
-                ?: json.getByPath("msg.wcpayinfo.transcationid")?.asString
-                ?: ""
-        }
-
-        val transferId by lazy {
-            extractXmlTag(jsonString, "transferid")
-                ?: json.getByPath("msg.wcpayinfo.transferid")?.asString
-                ?: ""
-        }
-
-        val payerUsername by lazy { json.getByPath("msg.wcpayinfo.payer_username")!!.asString }
-        val receiverUsername by lazy { json.getByPath("msg.wcpayinfo.receiver_username")!!.asString }
-        val invalidTime by lazy { json.getByPath("msg.wcpayinfo.invalidtime")!!.asString.toInt() }
-        val feedesc by lazy { json.getByPath("msg.wcpayinfo.feedesc")!!.asString }
+        val transactionId by lazy { xml.getByPath("msg.appmsg.wcpayinfo.transcationid")!!.asString }
+        val transferId by lazy { xml.getByPath("msg.appmsg.wcpayinfo.transferid")!!.asString }
+        val beginTransferTime by lazy { xml.getByPath("msg.appmsg.wcpayinfo.begintransfertime")!!.asString.toLong() }
+        val payerUsername by lazy { xml.getByPath("msg.appmsg.wcpayinfo.payer_username")!!.asString }
+        val receiverUsername by lazy { xml.getByPath("msg.appmsg.wcpayinfo.receiver_username")!!.asString }
+        val invalidTime by lazy { xml.getByPath("msg.appmsg.wcpayinfo.invalidtime")!!.asString.toInt() }
+        val feedesc by lazy { xml.getByPath("msg.appmsg.wcpayinfo.feedesc")!!.asString }
     }
 
     companion object {
         @Suppress("UNCHECKED_CAST")
         private inline fun <T> getFieldByName(instance: Any, name: String): T {
-            return instance.reflekt().getField(name, true)!! as T
+            return instance.reflekt().getField(name, true) as T
         }
 
         /**

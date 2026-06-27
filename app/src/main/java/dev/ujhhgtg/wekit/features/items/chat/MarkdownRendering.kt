@@ -46,7 +46,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.isDarkMode
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.utils.replaceEmojis
+import dev.ujhhgtg.wekit.utils.strings.replaceEmojis
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
 import io.noties.markwon.MarkwonSpansFactory

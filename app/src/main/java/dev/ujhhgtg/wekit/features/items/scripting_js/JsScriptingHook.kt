@@ -16,20 +16,20 @@ import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.readText
 
-@Feature(name = "脚本引擎", categories = ["脚本 (JavaScript)"], description = "执行 JavaScript 脚本")
+@Feature(name = "脚本引擎 (JS)", categories = ["脚本 (JS)"], description = "执行 JavaScript 脚本")
 object JsScriptingHook : SwitchFeature(),
     WeDatabaseListenerApi.IInsertListener, IWePacketInterceptor {
 
     private val TAG = This.Class.simpleName
 
-    private val SCRIPTS_DIR = (KnownPaths.moduleData / "scripts").createDirectoriesNoThrow()
+    private val SCRIPTS_DIR = (KnownPaths.moduleData / "scripts_js").createDirectoriesNoThrow()
 
     val scripts = ConcurrentHashMap<String, String>()
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
 
-        WeLogger.d(TAG, "loading scripts...")
+        WeLogger.d(TAG, "loading js scripts...")
         for (path in SCRIPTS_DIR.listDirectoryEntries("*.js")) {
             val name = path.name
             val content = runCatching { path.readText() }.getOrElse { continue }

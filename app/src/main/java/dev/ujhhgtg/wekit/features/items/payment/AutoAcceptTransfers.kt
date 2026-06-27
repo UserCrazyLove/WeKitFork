@@ -19,15 +19,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import dev.ujhhgtg.comptime.This
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
+import dev.ujhhgtg.wekit.features.api.core.WePaymentApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
-import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -43,7 +41,7 @@ import kotlin.concurrent.thread
 import kotlin.random.Random
 
 @Feature(name = "自动接收转账", categories = ["红包与支付"], description = "监听消息并自动接收转账")
-object AutoAcceptTransfers : ClickableFeature(), IResolveDex, WeDatabaseListenerApi.IInsertListener {
+object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
 
     private val TAG = This.Class.simpleName
 
@@ -89,6 +87,14 @@ object AutoAcceptTransfers : ClickableFeature(), IResolveDex, WeDatabaseListener
     private fun handleTransfer(values: ContentValues) {
         if (values.getAsInteger("isSend") == 1 && !transferSelf) return
 
+        val talker = values.getAsString("talker") ?: ""
+
+        if (transferUseWhitelist) {
+            if (talker !in transferWhitelist) return
+        } else {
+            if (talker in transferBlacklist) return
+        }
+
         val content = values.getAsString("content") ?: return
 
         val subtype = parsePaySubtypeFromXml(content)
@@ -117,27 +123,6 @@ object AutoAcceptTransfers : ClickableFeature(), IResolveDex, WeDatabaseListener
             return
         }
 
-        if (transferUseWhitelist) {
-            if (payerUsername !in transferWhitelist) return
-        } else {
-            if (payerUsername in transferBlacklist) return
-        }
-
-        val netScene = run {
-            val transactionId = transferMsg.transactionId
-            val transferId = transferMsg.transferId
-            val invalidTime = transferMsg.invalidTime
-
-            val ctor = ctorNetSceneTransferOperation.constructor
-            return@run when (ctor.parameterCount) {
-                10 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUsername, invalidTime, "", null, 1, null)
-                12 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUsername, invalidTime, "", null, 1, null, 0L, "")
-                13 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUsername, invalidTime, "", null, 1, null, 0L, "", "")
-                14 -> ctor.newInstance(transactionId, transferId, 0, "confirm", payerUsername, invalidTime, "", null, 1, "", null, 0L, "", "")
-                else -> error("unknown NetSceneTransferOperation constructor variant")
-            }
-        }
-
         val customDelay = transferDelayCustom.toLongOrNull() ?: 0L
         val randomRange = (transferDelayRandomRange.toLongOrNull() ?: 300L).coerceAtLeast(0)
 
@@ -164,8 +149,8 @@ object AutoAcceptTransfers : ClickableFeature(), IResolveDex, WeDatabaseListener
                     Thread.sleep(delayTime)
                 }
 
-                WeNetSceneApi.sendNetScene(netScene)
-                WeLogger.i(TAG, "constructed net scene and added to queue")
+                WePaymentApi.confirmTransfer(transferMsg.transactionId, transferMsg.transferId, payerUsername, transferMsg.invalidTime)
+                WeLogger.i(TAG, "called WePaymentApi.confirmTransfer")
 
                 val autoReply = transferAutoReply
                 if (autoReply.isNotBlank()) {
@@ -223,7 +208,7 @@ object AutoAcceptTransfers : ClickableFeature(), IResolveDex, WeDatabaseListener
                                         } else {
                                             transferBlacklist = selected
                                         }
-                                        showToast("已保存 ${selected.size} 个联系人, 重启微信以使更改生效")
+                                        showToast("已保存 ${selected.size} 个联系人")
                                         onDismiss()
                                     }
                                 }
@@ -300,16 +285,5 @@ object AutoAcceptTransfers : ClickableFeature(), IResolveDex, WeDatabaseListener
         }
 
         return true
-    }
-
-    private val ctorNetSceneTransferOperation by dexConstructor {
-        searchPackages("com.tencent.mm.plugin.remittance.model")
-        matcher {
-            declaredClass {
-                usingEqStrings("Micromsg.NetSceneTenpayRemittanceConfirm", "/cgi-bin/mmpay-bin/transferoperation")
-            }
-
-            usingEqStrings("account click info , key is %s, value is %s")
-        }
     }
 }

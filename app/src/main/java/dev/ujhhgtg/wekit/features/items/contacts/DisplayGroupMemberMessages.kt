@@ -8,6 +8,7 @@ import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.android.currentWxId
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 
 @Feature(
     name = "查看群成员消息历史",
@@ -27,8 +28,8 @@ object DisplayGroupMemberMessages : SwitchFeature(), WeContactPrefsScreenApi.ICo
     }
 
     override fun getContactInfoItem(activity: Activity): List<WeContactPrefsScreenApi.PreferenceItem> {
-        if (!WeCurrentConversationApi.value.endsWith("@chatroom")) return emptyList()
-        if (activity.currentWxId!!.endsWith("@chatroom")) return emptyList()
+        if (!WeCurrentConversationApi.value.isGroupChatWxId) return emptyList()
+        if (activity.currentWxId!!.isGroupChatWxId) return emptyList()
 
         return listOf(
             WeContactPrefsScreenApi.PreferenceItem(

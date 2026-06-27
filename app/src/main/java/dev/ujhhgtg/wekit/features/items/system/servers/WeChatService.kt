@@ -5,6 +5,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.utils.collections.LruCache
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.serialization.Serializable
 
 object WeChatService {
@@ -88,7 +89,7 @@ object WeChatService {
     }
 
     fun listMessages(convId: String, pageIndex: Int = 1, pageSize: Int = 20): Result<List<MessageInfo>> {
-        val isGroup = convId.endsWith("@chatroom")
+        val isGroup = convId.isGroupChatWxId
         val membersMap: Map<String, String> = if (isGroup) {
             groupMembersCache.getOrPut(convId) {
                 WeDatabaseApi.getGroupMembers(convId).associate { m ->

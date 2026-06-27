@@ -15,6 +15,7 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import androidx.core.content.ContextCompat
 import dev.ujhhgtg.comptime.nameOf
+import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -28,9 +29,9 @@ import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.collections.LruCache
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
-import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.utils.replaceEmojis
-import dev.ujhhgtg.wekit.utils.replaceRichContent
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
+import dev.ujhhgtg.wekit.utils.strings.replaceEmojis
+import dev.ujhhgtg.wekit.utils.strings.replaceRichContent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -206,7 +207,7 @@ object NotificationsEvolved : SwitchFeature() {
                     .build()
                 val messagingStyle = Notification.MessagingStyle(mePerson)
 
-                if (isGroupChat(convWxId)) {
+                if (convWxId.isGroupChatWxId) {
                     messagingStyle.isGroupConversation = true
                     messagingStyle.conversationTitle = notifTitle
                 } else {
@@ -255,9 +256,5 @@ object NotificationsEvolved : SwitchFeature() {
                 builder.addAction(replyAction)
                 builder.addAction(readAction)
             }
-    }
-
-    private fun isGroupChat(wxid: String): Boolean {
-        return wxid.endsWith("@chatroom")
     }
 }

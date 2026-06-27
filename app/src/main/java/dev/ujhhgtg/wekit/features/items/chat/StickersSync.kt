@@ -20,7 +20,6 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -152,11 +151,11 @@ object StickersSync : ClickableFeature(), IResolveDex {
                                     val fileName = actualPath.fileName.toString()
 
                                     val md5 = hashCache.hashes[fileName]
-                                        ?: getEmojiMd5FromPath(HostInfo.application, absPath)
+                                        ?: WeServiceApi.getEmojiMd5FromPath(HostInfo.application, absPath)
                                     newHashes[fileName] = md5
 
-                                    val emojiThumb = getEmojiInfoByMd5(md5)
-                                    methodSaveEmojiThumb.method.invoke(emojiThumb, null, true)
+                                    val emojiThumb = WeServiceApi.getEmojiInfoByMd5(md5)
+                                    WeServiceApi.methodSaveEmojiThumb.method.invoke(emojiThumb, null, true)
                                     val groupItemInfo = ctorGroupItemInfo.newInstance(emojiThumb, 2, "", 0)
                                     stickers.add(groupItemInfo)
                                 } catch (e: Exception) {
@@ -235,43 +234,6 @@ object StickersSync : ClickableFeature(), IResolveDex {
             usingEqStrings("emojiInfo", "sosDocId")
         }
     }
-    private val classEmojiMgrImpl by dexClass {
-        matcher {
-            methods {
-                add {
-                    usingEqStrings("MicroMsg.emoji.EmojiMgrImpl", "sendEmoji: context is null")
-                }
-            }
-        }
-    }
-    private val classEmojiStorageMgr by dexClass {
-        searchPackages("com.tencent.mm.storage")
-        matcher {
-            methods {
-                add {
-                    usingEqStrings("MicroMsg.emoji.EmojiStorageMgr", "EmojiStorageMgr: %s")
-                }
-            }
-        }
-    }
-    private val classEmojiInfoStorage by dexClass {
-        matcher {
-            methods {
-                add {
-                    usingEqStrings(
-                        "MicroMsg.emoji.EmojiInfoStorage",
-                        "md5 is null or invalue. md5:%s"
-                    )
-                }
-            }
-        }
-    }
-    private val methodSaveEmojiThumb by dexMethod {
-        matcher {
-            declaredClass("com.tencent.mm.storage.emotion.EmojiInfo")
-            usingEqStrings("save emoji thumb error")
-        }
-    }
     private val ctorResourceLoadOptions by dexConstructor {
         matcher {
             declaredClass {
@@ -299,46 +261,6 @@ object StickersSync : ClickableFeature(), IResolveDex {
             .createDirectoriesNoThrow()
     }
 
-    private val emojiMgrImpl: Any by lazy {
-        WeServiceApi.emojiFeatureService.reflekt()
-            .firstMethod {
-                returnType = classEmojiMgrImpl.clazz
-            }
-            .invoke()!!
-    }
-
-    fun getEmojiMd5FromPath(context: Context, path: String): String {
-        return emojiMgrImpl
-            .reflekt()
-            .firstMethod {
-                parameters(Context::class.java, String::class.java)
-                returnType = String::class.java
-            }
-            .invoke(context, path) as String
-    }
-
-    private val emojiInfoStorage by lazy {
-        val emojiStorageMgr = classEmojiStorageMgr.reflekt()
-            .firstMethod {
-                modifiers { it.contains(Modifiers.STATIC) }
-                returnType = classEmojiStorageMgr.clazz
-            }
-            .invokeStatic()!!
-        emojiStorageMgr.reflekt()
-            .firstMethod {
-                returnType = classEmojiInfoStorage.clazz
-            }
-            .invoke()!!
-    }
-
-    fun getEmojiInfoByMd5(md5: String): Any {
-        return emojiInfoStorage.reflekt()
-            .firstMethod {
-                parameters(String::class)
-                returnType = "com.tencent.mm.storage.emotion.EmojiInfo"
-            }
-            .invoke(md5)!!
-    }
 
     private const val PLACEHOLDER_PACK_URL = "NOTURL://STICKER_PACK"
     private const val SEPERATOR = ";"
@@ -381,7 +303,7 @@ object StickersSync : ClickableFeature(), IResolveDex {
             val packConfig = manager.reflekt()
                 .firstMethod {
                     superclass()
-                    modifiers { it.contains(Modifiers.FINAL) }
+                    modifiers(Modifiers.FINAL)
                     returnType {
                         it != Boolean::class.java
                     }

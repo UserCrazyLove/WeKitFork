@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.ExposurePlus1Icon
 import dev.ujhhgtg.wekit.utils.android.showToast
-import dev.ujhhgtg.wekit.utils.removeWxIdPrefix
+import dev.ujhhgtg.wekit.utils.strings.removeWxIdPrefix
 
 @Suppress("DEPRECATION")
 @Feature(name = "消息复读", categories = ["聊天"], description = "向消息长按菜单添加菜单项, 可复读一些简单的消息")

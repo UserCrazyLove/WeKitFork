@@ -39,6 +39,7 @@ import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
@@ -174,7 +175,7 @@ object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertLis
             if (!packetNotif) return@hookAfter
 
             val displayName = WeDatabaseApi.getDisplayName(info.talker)
-            val isGroup = info.talker.endsWith("@chatroom")
+            val isGroup = info.talker.isGroupChatWxId
             val sourceLabel = if (isGroup) "群组" else "私聊"
             showToast("抢到${sourceLabel}「${displayName}」中的红包 ¥${displayAmount}")
         }

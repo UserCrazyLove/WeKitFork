@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.CameraIcon
 import dev.ujhhgtg.wekit.utils.android.Intent
-import dev.ujhhgtg.wekit.utils.removeWxIdPrefix
+import dev.ujhhgtg.wekit.utils.strings.removeWxIdPrefix
 
 @Suppress("DEPRECATION")
 @Feature(name = "消息转圈", categories = ["朋友圈"], description = "将一些简单的消息转发到朋友圈")

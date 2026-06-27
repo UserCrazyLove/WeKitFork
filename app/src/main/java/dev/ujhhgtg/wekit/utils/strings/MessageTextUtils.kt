@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.utils
+package dev.ujhhgtg.wekit.utils.strings
 
 
 private val MAP_REGEX = Regex("\\[[^]]+]")
