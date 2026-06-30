@@ -26,7 +26,7 @@ import org.json.JSONObject
 @Feature(
     name = "自定义朋友圈底部信息",
     categories = ["朋友圈"],
-    description = "长按朋友圈动态自定义该条底部详细信息内容"
+    description = "长按朋友圈动态自定义该条底部详细信息内容-请同时打开朋友圈底部详细"
 )
 object CustomMomentsBottomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
