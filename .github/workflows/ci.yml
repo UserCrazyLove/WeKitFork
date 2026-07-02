@@ -31,7 +31,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 修正条件：PR 不再依赖 head_commit，手动触发直接通过
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'pull_request' ||
@@ -77,12 +76,23 @@ jobs:
       - name: Install system dependencies
         run: sudo apt install -y gcc-multilib
 
-      - name: Decode keystore (push to master)
-        if: github.event_name != 'pull_request'
+      # 检查签名用 secrets 是否都存在
+      - name: Check signing secrets
+        id: check_secrets
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ] && [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            echo "have_keystore=true" >> $GITHUB_OUTPUT
+          else
+            echo "have_keystore=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Decode keystore (if available)
+        if: steps.check_secrets.outputs.have_keystore == 'true'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
 
-      - name: Build Release (Signed / Unsigned)
+      # 有 keystore 就签，没有就打 unsigned 包
+      - name: Build Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WEKIT_KEYSTORE_FILE: ${{ runner.temp }}/wekit-keystore.jks
@@ -98,6 +108,7 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
 
       - name: Upload mapping artifact
+        if: hashFiles('app/build/outputs/mapping/release/mapping.txt') != ''
         uses: actions/upload-artifact@v7
         with:
           name: wekit-mapping
@@ -146,7 +157,7 @@ jobs:
           tag_name: CI
           name: CI
           body: |
-            本 Release 始终包含最新的 CI 构建产物
+            本 Release 始终包含最新的 CI 构建产物（Fork 自动构建，无原作者签名）
             
             提交 SHA: `${{ github.sha }}`
             提交消息:
