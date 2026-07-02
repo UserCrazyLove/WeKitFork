@@ -76,7 +76,7 @@ jobs:
       - name: Install system dependencies
         run: sudo apt install -y gcc-multilib
 
-      # 检查签名用 secrets 是否都存在
+      # 检查签名所需的 secrets 是否存在
       - name: Check signing secrets
         id: check_secrets
         run: |
@@ -88,17 +88,22 @@ jobs:
 
       - name: Decode keystore (if available)
         if: steps.check_secrets.outputs.have_keystore == 'true'
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/wekit-keystore.jks
 
-      # 有 keystore 就签，没有就打 unsigned 包
-      - name: Build Release
+      - name: Build Release (signed)
+        if: steps.check_secrets.outputs.have_keystore == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WEKIT_KEYSTORE_FILE: ${{ runner.temp }}/wekit-keystore.jks
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --warning-mode all --stacktrace
+
+      - name: Build Release (unsigned)
+        if: steps.check_secrets.outputs.have_keystore != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew assembleRelease --warning-mode all --stacktrace
 
       - name: Upload APK artifact
@@ -132,7 +137,7 @@ jobs:
           name: wekit-apk
           path: artifacts
 
-      - name: Delete existing CI release (clean update)
+      - name: Delete existing CI release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -157,7 +162,11 @@ jobs:
           tag_name: CI
           name: CI
           body: |
-            本 Release 始终包含最新的 CI 构建产物（Fork 自动构建，无原作者签名）
-            
+            Fork 自动构建，未经原作者签名。
             提交 SHA: `${{ github.sha }}`
-            提交消息:
+          files: |
+            artifacts/*.apk
+            artifacts/update.json
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
