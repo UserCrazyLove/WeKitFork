@@ -68,7 +68,7 @@ object MessageTimeEnhancements : ClickableFeature(),
 
     private lateinit var avatarField: Field
 
-    private var timeFormat by prefOption("msg_time_pattern", "yyyy/MM/dd HH:mm:ss")
+    private var timeFormat by prefOption("msg_time_pattern", "HH:mm:ss")
     private var textSize by prefOption("msg_time_text_size", 10)
     private var displayFormat by prefOption("msg_time_display_format", $$"$time | $type")
     private var isAlwaysCentered by prefOption("msg_time_always_centered", false)

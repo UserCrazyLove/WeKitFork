@@ -5,6 +5,7 @@
 ```bash
 ./gradlew :app:assembleDebug   # debug (uses same signing as release)
 ./gradlew :app:assembleRelease # release (with optimization on)
+./gradlew assembleRelease -Pandroid.injected.build.abi=arm64-v8a
 ```
 
 - JDK 21
